@@ -1,0 +1,6 @@
+{
+  "name": "Choreo",
+  "description": "Choreo — современная платформа мониторинга узлов, аналитики статусов конфигурации и управления отчетами Puppet в реальном времени.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
