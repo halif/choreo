@@ -8,7 +8,9 @@ interface HeaderProps {
   isFleetRunning: boolean;
   onOpenAddNode: () => void;
   onOpenIntegration: () => void;
-  isLiveConnected: boolean;
+  isLiveConnected,
+  masterHost: boolean;
+  masterHost?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +20,8 @@ export const Header: React.FC<HeaderProps> = ({
   isFleetRunning,
   onOpenAddNode,
   onOpenIntegration,
-  isLiveConnected
+  isLiveConnected,
+  masterHost
 }) => {
   return (
     <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 py-3">
@@ -41,12 +44,14 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <span className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                  master: puppetserver.prod.acme.net:8140
+                  {masterHost ? `master: ${masterHost}:8140` : "master: kubenode1:8140"}
                 </span>
                 <span className="text-slate-600">|</span>
                 <span className="flex items-center gap-1 text-[11px]">
-                  <Radio className={`w-3 h-3 ${isLiveConnected ? 'text-emerald-400' : 'text-slate-500'}`} />
-                  {isLiveConnected ? (
+                  <Radio className={`w-3 h-3 ${isLiveConnected,
+  masterHost ? 'text-emerald-400' : 'text-slate-500'}`} />
+                  {isLiveConnected,
+  masterHost ? (
                     <span className="text-emerald-400 font-mono">LIVE SSE</span>
                   ) : (
                     <span className="text-slate-500">Offline</span>
