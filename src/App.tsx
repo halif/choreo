@@ -204,6 +204,7 @@ export default function App() {
         onOpenAddNode={() => setShowAddNodeModal(true)}
         onOpenIntegration={() => setShowIntegrationModal(true)}
         isLiveConnected={isLiveConnected}
+        masterHost={metrics?.masterHost}
       />
 
       {/* Tabs Navigation */}

@@ -115,6 +115,7 @@ export interface NodeGroup {
 }
 
 export interface DashboardMetrics {
+  masterHost?: string;
   totalNodes: number;
   compliantNodes: number;
   changedNodes: number;
