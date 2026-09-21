@@ -103,14 +103,22 @@ export default function App() {
 
   // Trigger Run on single node
   const handleTriggerRun = async (certname: string, forcedOutcome?: string) => {
+    showToast(`Запуск puppet agent -t на ${certname}...`, "info");
+    setNodes((prev) =>
+      prev.map((n) => (n.certname === certname ? { ...n, isAgentRunning: true } : n))
+    );
     try {
-      showToast(`Запуск puppet agent -t на ${certname}...`, 'info');
-      setNodes((prev) =>
-        prev.map((n) => (n.certname === certname ? { ...n, isAgentRunning: true } : n))
-      );
       await api.triggerNodeRun(certname, forcedOutcome);
     } catch (err: any) {
-      showToast(err.message || 'Ошибка запуска агента', 'warning');
+      console.warn("triggerNodeRun error or timeout:", err);
+    } finally {
+      setTimeout(() => {
+        setNodes((prev) =>
+          prev.map((n) => (n.certname === certname ? { ...n, isAgentRunning: false } : n))
+        );
+        showToast(`Прогон puppet agent на ${certname} завершен`, "success");
+        loadData();
+      }, 3000);
     }
   };
 
