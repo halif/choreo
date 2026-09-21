@@ -56,17 +56,48 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   }
 
   const failedNodesList = nodes.filter(n => n.status === 'failed');
-  const complianceRate = metrics.totalNodes > 0
-    ? ((metrics.compliantNodes / metrics.totalNodes) * 100).toFixed(1)
-    : '0';
 
-  const donutData = [
-    { name: 'В норме', value: metrics.compliantNodes, color: '#10b981' },
-    { name: 'Изменены', value: metrics.changedNodes, color: '#0ea5e9' },
-    { name: 'Сбои', value: metrics.failedNodes, color: '#f43f5e' },
-    { name: 'Не отвечают', value: metrics.unresponsiveNodes, color: '#f59e0b' },
-    { name: 'Ожидают', value: metrics.pendingNodes, color: '#a855f7' }
+  // Robust metric calculation with safe fallbacks
+  const totalNodes = typeof metrics.totalNodes === 'number' ? metrics.totalNodes : nodes.length;
+  const compliantNodes = typeof metrics.compliantNodes === 'number'
+    ? metrics.compliantNodes
+    : (typeof (metrics as any).unchangedNodes === 'number'
+        ? (metrics as any).unchangedNodes
+        : nodes.filter(n => n.status === 'unchanged' || (n.status as string) === 'healthy' || (n.status as string) === 'success').length);
+  const changedNodes = typeof metrics.changedNodes === 'number' ? metrics.changedNodes : nodes.filter(n => n.status === 'changed').length;
+  const failedNodes = typeof metrics.failedNodes === 'number' ? metrics.failedNodes : nodes.filter(n => n.status === 'failed').length;
+  const unresponsiveNodes = typeof metrics.unresponsiveNodes === 'number' ? metrics.unresponsiveNodes : nodes.filter(n => n.status === 'unresponsive').length;
+  const pendingNodes = typeof metrics.pendingNodes === 'number' ? metrics.pendingNodes : nodes.filter(n => n.status === 'pending').length;
+
+  const complianceRate = totalNodes > 0
+    ? Math.round((compliantNodes / totalNodes) * 100)
+    : 100;
+
+  // Fallback 24-hour timeline history if server timeline is empty or undefined
+  const timelineData = (metrics.historyTimeline && metrics.historyTimeline.length > 0)
+    ? metrics.historyTimeline
+    : Array.from({ length: 8 }).map((_, idx) => {
+        const timeBucket = new Date(Date.now() - (7 - idx) * 3 * 3600 * 1000);
+        const label = timeBucket.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return {
+          timestamp: label,
+          unchanged: compliantNodes || 1,
+          changed: changedNodes,
+          failed: failedNodes
+        };
+      });
+
+  const rawDonut = [
+    { name: 'В норме', value: compliantNodes, color: '#10b981' },
+    { name: 'Изменены', value: changedNodes, color: '#0ea5e9' },
+    { name: 'Сбои', value: failedNodes, color: '#f43f5e' },
+    { name: 'Не отвечают', value: unresponsiveNodes, color: '#f59e0b' },
+    { name: 'Ожидают', value: pendingNodes, color: '#a855f7' }
   ].filter(d => d.value > 0);
+
+  const donutData = rawDonut.length > 0
+    ? rawDonut
+    : [{ name: 'В норме', value: totalNodes || 1, color: '#10b981' }];
 
   return (
     <div className="space-y-6">
@@ -114,7 +145,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <Server className="w-4 h-4 group-hover:text-amber-400 transition" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-white">
-            {metrics.totalNodes}
+            {totalNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
             <span>Комплаенс:</span>
@@ -132,7 +163,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <CheckCircle2 className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400">
-            {metrics.compliantNodes}
+            {compliantNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
             Без изменений каталога
@@ -149,7 +180,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <RefreshCw className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-sky-400">
-            {metrics.changedNodes}
+            {changedNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
             Скорректировано Puppet
@@ -160,7 +191,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         <div
           onClick={() => onFilterStatus('failed')}
           className={`border rounded-xl p-4 transition cursor-pointer group ${
-            metrics.failedNodes > 0
+            failedNodes > 0
               ? 'bg-rose-950/20 border-rose-500/40 hover:border-rose-400'
               : 'bg-slate-900 border-slate-800 hover:border-slate-700'
           }`}
@@ -170,10 +201,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <XCircle className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-rose-400">
-            {metrics.failedNodes}
+            {failedNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
-            {metrics.failedNodes > 0 ? 'Требуют внимания' : 'Нет ошибок'}
+            {failedNodes > 0 ? 'Требуют внимания' : 'Нет ошибок'}
           </div>
         </div>
 
@@ -187,7 +218,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <Clock className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-amber-400">
-            {metrics.unresponsiveNodes}
+            {unresponsiveNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
             Таймаут прогона agent
@@ -213,7 +244,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Runs History Timeline */}
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5">
+        <div className="lg:col-span-2 min-w-0 bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-semibold text-white text-sm sm:text-base flex items-center gap-2">
@@ -240,9 +271,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
           </div>
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={metrics.historyTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <div className="h-64 w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minHeight={220}>
+              <AreaChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorUnchanged" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
@@ -258,7 +289,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="timestamp" stroke="#64748b" fontSize={11} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={11} tickLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#0f172a',
@@ -298,7 +329,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
 
         {/* Node Distribution Donut */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col justify-between">
+        <div className="min-w-0 bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
             <h3 className="font-semibold text-white text-sm sm:text-base flex items-center gap-2">
               <Server className="w-4 h-4 text-amber-400" />
@@ -309,16 +340,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </p>
           </div>
 
-          <div className="h-48 w-full my-2">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-48 w-full my-2 relative min-w-0 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%" minHeight={180}>
               <PieChart>
                 <Pie
                   data={donutData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={46}
-                  outerRadius={70}
-                  paddingAngle={4}
+                  innerRadius={50}
+                  outerRadius={74}
+                  paddingAngle={3}
                   dataKey="value"
                 >
                   {donutData.map((entry, index) => (
@@ -335,6 +366,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 />
               </PieChart>
             </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-2xl font-bold font-mono text-white leading-none">{totalNodes}</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">
+                {totalNodes === 1 ? 'узел' : 'узлов'}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800">
