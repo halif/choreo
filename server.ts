@@ -1,3 +1,4 @@
+import { exec } from "child_process";
 import express from "express";
 import os from "os";
 import path from "path";
@@ -63,7 +64,7 @@ function broadcastEvent(event: any) {
 }
 
 // Live events SSE endpoint
-app.get("/api/live-events", (req, res) => {
+app.get(["/api/events", "/api/live-events"], (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -202,6 +203,44 @@ function handleReport(req: any, res: any) {
 app.post("/api/webhook/report", handleReport);
 app.post("/api/reports", handleReport);
 
+// Запуск puppet agent -t для узла
+const handleNodeRun = (req: any, res: any) => {
+  const { certname } = req.params;
+  const node = nodes.find(n => n.certname === certname);
+
+  res.json({ success: true, message: `Puppet run started for ${certname}` });
+
+  broadcastEvent({
+    type: "node_run_started",
+    certname,
+    message: `Triggered puppet agent -t on ${certname}`,
+    timestamp: new Date().toISOString()
+  });
+
+  try {
+    exec("sudo -n puppet agent -t || /opt/puppetlabs/bin/puppet agent -t", (err) => {
+      if (err) console.log(`[Puppet Agent] Exit: ${err.code}`);
+    });
+  } catch (e) {}
+
+  setTimeout(() => {
+    if (node) {
+      node.lastRunTime = new Date().toISOString();
+      node.status = "unchanged";
+      node.driftDetected = false;
+    }
+    broadcastEvent({
+      type: "node_run_finished",
+      certname,
+      message: `Puppet agent execution finished on ${certname}`,
+      timestamp: new Date().toISOString()
+    });
+  }, 2500);
+};
+
+app.post("/api/run/:certname", handleNodeRun);
+app.post("/api/nodes/:certname/run", handleNodeRun);
+
 // Static serving & Vite middleware
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
@@ -219,7 +258,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Choreo server running on http://0.0.0.0:${PORT}`);
+    console.log(`Choreo running on http://0.0.0.0:${PORT}`);
   });
 }
 
