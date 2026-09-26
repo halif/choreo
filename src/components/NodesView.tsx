@@ -18,6 +18,7 @@ import { StatusBadge } from './StatusBadge';
 
 interface NodesViewProps {
   nodes: PuppetNode[];
+  reports?: { id: string; certname: string; time?: string; timestamp?: string; run_duration?: number }[];
   selectedStatus: string;
   onStatusChange: (status: string) => void;
   onSelectNode: (certname: string) => void;
@@ -29,6 +30,7 @@ interface NodesViewProps {
 
 export const NodesView: React.FC<NodesViewProps> = ({
   nodes,
+  reports = [],
   selectedStatus,
   onStatusChange,
   onSelectNode,
@@ -52,11 +54,11 @@ export const NodesView: React.FC<NodesViewProps> = ({
     }
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
-      const matchCertname = node.certname.toLowerCase().includes(q);
-      const matchIp = node.ip.includes(q);
-      const matchOs = node.os.toLowerCase().includes(q);
-      const matchClass = node.classes.some(c => c.toLowerCase().includes(q));
-      const matchGroup = node.groups.some(g => g.toLowerCase().includes(q));
+      const matchCertname = (node.certname || '').toLowerCase().includes(q);
+      const matchIp = (node.ip || '').includes(q);
+      const matchOs = (node.os || '').toLowerCase().includes(q);
+      const matchClass = node.classes?.some(c => c.toLowerCase().includes(q));
+      const matchGroup = node.groups?.some(g => g.toLowerCase().includes(q));
       if (!matchCertname && !matchIp && !matchOs && !matchClass && !matchGroup) {
         return false;
       }
@@ -65,7 +67,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
   });
 
   // Unique groups list for filter
-  const allGroups = Array.from(new Set(nodes.flatMap(n => n.groups)));
+  const allGroups = Array.from(new Set(nodes.flatMap(n => n.groups || [])));
 
   const handleCopy = (certname: string) => {
     navigator.clipboard?.writeText(certname);
@@ -89,11 +91,20 @@ export const NodesView: React.FC<NodesViewProps> = ({
     }
   };
 
-  const formatTimeAgo = (isoString?: string) => {
-    if (!isoString) return 'нет данных';
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return 'только что';
-    const diffMs = Math.max(0, Date.now() - date.getTime());
+  // Безопасное вычисление относительного времени
+  const formatTimeAgo = (rawTime?: string | number) => {
+    if (!rawTime) return 'нет данных';
+
+    let timeMs = Number(rawTime);
+    if (!isNaN(timeMs) && timeMs > 0) {
+      if (timeMs < 10000000000) timeMs *= 1000;
+    } else {
+      timeMs = new Date(rawTime).getTime();
+    }
+
+    if (isNaN(timeMs) || timeMs <= 0) return 'только что';
+
+    const diffMs = Math.max(0, Date.now() - timeMs);
     const diffMins = Math.floor(diffMs / 60000);
     if (diffMins < 1) return 'только что';
     if (diffMins < 60) return `${diffMins} мин назад`;
@@ -226,6 +237,22 @@ export const NodesView: React.FC<NodesViewProps> = ({
               ) : (
                 filteredNodes.map((node) => {
                   const isSelected = selectedCertnames.includes(node.certname);
+
+                  // 1. Поиск соответствующего отчета в реестре
+                  const nodeShort = (node.certname || '').split('.')[0].toLowerCase();
+                  const matchingReport = node.latestReportId
+                    ? reports.find(r => r.id === node.latestReportId)
+                    : reports.find(r => {
+                        const repName = (r.certname || (r as any).host || '').toLowerCase();
+                        return repName === node.certname.toLowerCase() || repName.split('.')[0] === nodeShort;
+                      }) || (reports.length > 0 ? reports[0] : null);
+
+                  const effectiveReportId = node.latestReportId || matchingReport?.id;
+
+                  // 2. Определение времени и длительности
+                  const effectiveLastRun = node.lastRun || (node as any).lastRunTime || matchingReport?.time || (matchingReport as any)?.timestamp;
+                  const effectiveDuration = node.runDuration ?? (node as any).lastRunDuration ?? matchingReport?.run_duration ?? 0;
+
                   return (
                     <tr
                       key={node.certname}
@@ -269,7 +296,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
                           </button>
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                          Puppet agent v{node.puppetVersion}
+                          Puppet agent v{node.puppetVersion || '7.x'}
                         </div>
                       </td>
 
@@ -297,24 +324,24 @@ export const NodesView: React.FC<NodesViewProps> = ({
                           {node.os}
                         </div>
                         <div className="text-[10px] text-slate-500 font-mono">
-                          {node.arch} • {node.facts?.processorcount || 8} vCPU • {node.facts?.memorytotal || '16 GB'}
+                          {node.arch || 'x86_64'} • {node.facts?.processorcount || 8} vCPU • {node.facts?.memorytotal || '16 GB'}
                         </div>
                       </td>
 
                       {/* Last Run & Duration */}
                       <td className="p-3.5 text-xs">
                         <div className="text-slate-200 font-medium">
-                          {formatTimeAgo(node.lastRun)}
+                          {formatTimeAgo(effectiveLastRun)}
                         </div>
                         <div className="text-[11px] font-mono text-slate-400">
-                          {node.runDuration > 0 ? `${node.runDuration}s` : 'нет данных'}
+                          {effectiveDuration > 0 ? `${Number(effectiveDuration).toFixed(2)}s` : 'нет данных'}
                         </div>
                       </td>
 
                       {/* Groups & Classes */}
                       <td className="p-3.5 text-xs">
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
-                          {node.groups.slice(0, 1).map((g) => (
+                          {(node.groups || []).slice(0, 1).map((g) => (
                             <span
                               key={g}
                               className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 truncate"
@@ -322,7 +349,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
                               {g}
                             </span>
                           ))}
-                          {node.classes.length > 0 && (
+                          {node.classes && node.classes.length > 0 && (
                             <span className="text-[10px] font-mono text-slate-500">
                               +{node.classes.length} классов
                             </span>
@@ -347,14 +374,14 @@ export const NodesView: React.FC<NodesViewProps> = ({
                             <Play className={`w-3.5 h-3.5 ${node.isAgentRunning ? 'animate-spin text-amber-400' : ''}`} />
                           </button>
 
-                          {/* Latest Report */}
-                          {node.latestReportId && (
+                          {/* Latest Report (Иконка файла) */}
+                          {effectiveReportId && (
                             <button
-                              onClick={() => onSelectReport(node.latestReportId!)}
-                              className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                              onClick={() => onSelectReport(effectiveReportId)}
+                              className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-white transition cursor-pointer"
                               title="Посмотреть отчет последнего прогона"
                             >
-                              <FileText className="w-3.5 h-3.5 text-sky-400" />
+                              <FileText className="w-3.5 h-3.5" />
                             </button>
                           )}
 
