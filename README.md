@@ -100,7 +100,7 @@ Choreo will be accessible at: `http://<YOUR_SERVER_IP>:3000`
 To automatically send Puppet reports to Choreo after each agent run, configure a custom report processor on your Puppet Server.
 
 ### Step 1: Create Report Processor Script
-On your Puppet Server, create `/etc/puppetlabs/puppet/choreo_report.rb`:
+On your Puppet Server, create `/etc/puppetlabs/code/environments/production/modules/choreo/lib/puppet/reports/choreo_report.rb`:
 
 ```ruby
 require 'puppet'

@@ -102,7 +102,7 @@ npm run dev
 Чтобы Puppet Server автоматически отправлял отчеты после каждого прогона агента в Choreo, настройте кастомный обработчик отчетов (report processor).
 
 ### Шаг 1: Создайте скрипт процессора отчетов
-На сервере Puppet Master создайте файл `/etc/puppetlabs/puppet/choreo_report.rb`:
+На сервере Puppet Master создайте файл `/etc/puppetlabs/code/environments/production/modules/choreo/lib/puppet/reports/choreo_report.rb`:
 
 ```ruby
 require 'puppet'
