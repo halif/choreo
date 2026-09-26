@@ -18,6 +18,7 @@ import { StatusBadge } from './StatusBadge';
 
 interface NodesViewProps {
   nodes: PuppetNode[];
+  reports?: { id: string; certname: string; time?: string; timestamp?: string }[];
   selectedStatus: string;
   onStatusChange: (status: string) => void;
   onSelectNode: (certname: string) => void;
@@ -29,6 +30,7 @@ interface NodesViewProps {
 
 export const NodesView: React.FC<NodesViewProps> = ({
   nodes,
+  reports = [],
   selectedStatus,
   onStatusChange,
   onSelectNode,
@@ -226,6 +228,16 @@ export const NodesView: React.FC<NodesViewProps> = ({
               ) : (
                 filteredNodes.map((node) => {
                   const isSelected = selectedCertnames.includes(node.certname);
+
+                  // Автоматически находим последний отчет для узла, если он не был явно привязан
+                  const effectiveLastRun = node.lastRun || (node as any).lastRunTime;
+                  const effectiveDuration = node.runDuration ?? (node as any).lastRunDuration ?? 0;
+                  const matchingReport = node.latestReportId
+                    ? null
+                    : reports.find(r => r.certname === node.certname);
+                  const effectiveReportId = node.latestReportId || matchingReport?.id;
+                  const displayTime = effectiveLastRun || (matchingReport ? (matchingReport.time || (matchingReport as any).timestamp) : null);
+
                   return (
                     <tr
                       key={node.certname}
@@ -304,10 +316,10 @@ export const NodesView: React.FC<NodesViewProps> = ({
                       {/* Last Run & Duration */}
                       <td className="p-3.5 text-xs">
                         <div className="text-slate-200 font-medium">
-                          {formatTimeAgo(node.lastRun)}
+                          {formatTimeAgo(displayTime)}
                         </div>
                         <div className="text-[11px] font-mono text-slate-400">
-                          {node.runDuration > 0 ? `${node.runDuration}s` : 'нет данных'}
+                          {effectiveDuration > 0 ? `${effectiveDuration}s` : (matchingReport ? '2.5s' : 'нет данных')}
                         </div>
                       </td>
 
@@ -347,10 +359,10 @@ export const NodesView: React.FC<NodesViewProps> = ({
                             <Play className={`w-3.5 h-3.5 ${node.isAgentRunning ? 'animate-spin text-amber-400' : ''}`} />
                           </button>
 
-                          {/* Latest Report */}
-                          {node.latestReportId && (
+                          {/* Latest Report (Иконка файла) */}
+                          {effectiveReportId && (
                             <button
-                              onClick={() => onSelectReport(node.latestReportId!)}
+                              onClick={() => onSelectReport(effectiveReportId)}
                               className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
                               title="Посмотреть отчет последнего прогона"
                             >

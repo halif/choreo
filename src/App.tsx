@@ -247,6 +247,7 @@ export default function App() {
         {activeTab === 'nodes' && (
           <NodesView
             nodes={nodes}
+            reports={reports}
             selectedStatus={selectedStatus}
             onStatusChange={(status) => setSelectedStatus(status)}
             onSelectNode={(certname) => setSelectedNodeCertname(certname)}
