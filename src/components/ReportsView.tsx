@@ -35,23 +35,55 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     if (envFilter !== 'all' && r.environment !== envFilter) return false;
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
-      const matchNode = r.certname.toLowerCase().includes(q);
-      const matchVersion = r.configuration_version?.toLowerCase().includes(q);
-      const matchId = r.id.toLowerCase().includes(q);
+      const matchNode = (r.certname || '').toLowerCase().includes(q);
+      const matchVersion = (r.configuration_version || '').toLowerCase().includes(q);
+      const matchId = (r.id || '').toLowerCase().includes(q);
       if (!matchNode && !matchVersion && !matchId) return false;
     }
     return true;
   });
 
-  const formatRelativeTime = (timeStr: string) => {
-    const ms = Date.now() - new Date(timeStr).getTime();
-    const minutes = Math.floor(ms / (60 * 1000));
-    if (minutes < 1) return 'только что';
-    if (minutes < 60) return `${minutes} мин назад`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} ч назад`;
-    const days = Math.floor(hours / 24);
-    return `${days} д назад`;
+  // Безопасное и умное форматирование даты
+  const formatDateTime = (rawTime?: string | number) => {
+    if (!rawTime) {
+      return { relative: 'только что', full: 'Недавно' };
+    }
+
+    let timeMs = 0;
+    // Проверяем, число ли это (timestamp)
+    const numericTime = Number(rawTime);
+    if (!isNaN(numericTime) && numericTime > 0) {
+      // Если timestamp в секундах (10 цифр), переводим в миллисекунды
+      timeMs = numericTime < 10000000000 ? numericTime * 1000 : numericTime;
+    } else {
+      timeMs = new Date(rawTime).getTime();
+    }
+
+    // Если дата все равно некорректная
+    if (isNaN(timeMs) || timeMs <= 0) {
+      return { relative: 'только что', full: 'Недавно' };
+    }
+
+    const diffMs = Math.max(0, Date.now() - timeMs);
+    const minutes = Math.floor(diffMs / 60000);
+
+    let relative = 'только что';
+    if (minutes >= 1 && minutes < 60) {
+      relative = `${minutes} мин назад`;
+    } else if (minutes >= 60 && minutes < 1440) {
+      relative = `${Math.floor(minutes / 60)} ч назад`;
+    } else if (minutes >= 1440) {
+      relative = `${Math.floor(minutes / 1440)} д назад`;
+    }
+
+    const dateObj = new Date(timeMs);
+    const full = `${dateObj.toLocaleDateString('ru-RU')} ${dateObj.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })}`;
+
+    return { relative, full };
   };
 
   return (
@@ -131,6 +163,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 filteredReports.map((report) => {
                   const res = report.metrics?.resources;
                   const isSelected = selectedReportId === report.id;
+                  const dateInfo = formatDateTime(report.time || (report as any).timestamp);
 
                   return (
                     <tr
@@ -152,7 +185,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             e.stopPropagation();
                             onSelectNode(report.certname);
                           }}
-                          className="font-mono text-xs sm:text-sm font-semibold text-slate-100 hover:text-amber-400 text-left transition truncate max-w-xs block"
+                          className="font-mono text-xs sm:text-sm font-semibold text-slate-100 hover:text-amber-400 text-left transition truncate max-w-xs block cursor-pointer"
                         >
                           {report.certname}
                         </button>
@@ -164,10 +197,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       {/* Run Time */}
                       <td className="p-3.5 whitespace-nowrap">
                         <div className="text-slate-200 font-medium">
-                          {formatRelativeTime(report.time)}
+                          {dateInfo.relative}
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono">
-                          {new Date(report.time).toLocaleDateString()} {new Date(report.time).toLocaleTimeString()}
+                          {dateInfo.full}
                         </div>
                       </td>
 
@@ -192,12 +225,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       {/* Metrics Badges */}
                       <td className="p-3.5">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                          {res?.failed > 0 && (
+                          {res && res.failed > 0 && (
                             <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
                               {res.failed} сбоев
                             </span>
                           )}
-                          {res?.changed > 0 && (
+                          {res && res.changed > 0 && (
                             <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
                               {res.changed} изм
                             </span>

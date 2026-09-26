@@ -59,7 +59,9 @@ function broadcastEvent(event: any) {
   if (liveEvents.length > 50) liveEvents.pop();
 
   sseClients.forEach(client => {
-    client.res.write(`data: ${JSON.stringify(fullEvent)}\n\n`);
+    try {
+      client.res.write(`data: ${JSON.stringify(fullEvent)}\n\n`);
+    } catch (e) {}
   });
 }
 
@@ -90,10 +92,9 @@ app.get("/api/metrics", (req, res) => {
   const unresponsive = nodes.filter(n => n.status === "unresponsive" || n.unresponsive).length;
   const pending = nodes.filter(n => n.status === "pending").length;
 
-  const totalDurations = reports.reduce((acc, r) => acc + (r.runDuration || 0), 0);
+  const totalDurations = reports.reduce((acc, r) => acc + (r.run_duration || r.runDuration || 0), 0);
   const avgRunDuration = reports.length > 0 ? Number((totalDurations / reports.length).toFixed(1)) : 2.5;
 
-  // Формируем 24-часовую историю для графика (8 временных интервалов)
   const now = Date.now();
   const historyTimeline = Array.from({ length: 8 }).map((_, idx) => {
     const timeBucket = new Date(now - (7 - idx) * 3 * 3600 * 1000);
@@ -109,7 +110,6 @@ app.get("/api/metrics", (req, res) => {
   const puppetMasterHost = `${os.hostname()}:8140`;
 
   res.json({
-    // Поля, ожидаемые фронтендом Choreo для карточек и графиков
     totalNodes: total,
     compliantNodes: unchanged,
     unchangedNodes: unchanged,
@@ -121,12 +121,10 @@ app.get("/api/metrics", (req, res) => {
     avgRunDuration,
     puppetMasterHost,
     historyTimeline,
-
-    // Дополнительные поля для совместимости
     masterHost: os.hostname(),
     activeNodes: total - unresponsive,
     statusCounts: { unchanged, changed, failed, unresponsive },
-    lastFleetRun: reports.length > 0 ? reports[0].timestamp : null
+    lastFleetRun: reports.length > 0 ? (reports[0].time || reports[0].timestamp) : null
   });
 });
 
@@ -163,9 +161,38 @@ function handleReport(req: any, res: any) {
 
   const status = reportData.status || (reportData.failed ? "failed" : reportData.changed ? "changed" : "unchanged");
   const environment = reportData.environment || "production";
-  const duration = reportData.metrics?.time?.total || 0.1;
+  const duration = Number(reportData.run_duration || reportData.metrics?.time?.total || 2.5);
+  const nowIso = new Date().toISOString();
+  const reportId = `rep-${Date.now()}`;
 
-  // Найти или создать узел в инвентаре
+  // Формируем отчет, совместимый со ВСЕМИ полями интерфейса
+  const newReport = {
+    id: reportId,
+    certname,
+    status,
+    environment,
+    time: nowIso,                    // Ключевое поле для ReportsView
+    timestamp: nowIso,               // Для обратной совместимости
+    run_duration: duration,          // Ключевое поле для ReportsView
+    runDuration: duration,           // Для обратной совместимости
+    configuration_version: reportData.configuration_version || `v${Date.now().toString().slice(-6)}`,
+    metrics: {
+      resources: {
+        total: (reportData.metrics && reportData.metrics.resources && reportData.metrics.resources.total) || 1,
+        failed: status === "failed" ? 1 : 0,
+        changed: status === "changed" ? 1 : 0,
+        unchanged: status === "unchanged" ? 1 : 0
+      },
+      time: { total: duration }
+    },
+    summary: `Agent catalog execution finished with status: ${status}`,
+    logs: reportData.logs || []
+  };
+
+  reports.unshift(newReport);
+  if (reports.length > 100) reports.pop();
+
+  // Найти или создать узел в инвентаре с явной привязкой latestReportId
   let node = nodes.find(n => n.certname === certname);
   if (!node) {
     node = {
@@ -175,12 +202,12 @@ function handleReport(req: any, res: any) {
       status,
       puppetVersion: reportData.puppetVersion || "8.x",
       os: reportData.os || "Linux (Puppet Agent)",
-      architecture: "x86_64",
-      cores: 4,
-      memoryTotal: "16 GiB",
-      lastRunTime: new Date().toISOString(),
+      arch: "x86_64",
+      lastRun: nowIso,              // Ключевое поле для NodesView
+      lastRunTime: nowIso,
+      runDuration: duration,        // Ключевое поле для NodesView
       lastRunDuration: duration,
-      catalogStatus: `Catalog applied in ${duration}s. Status: ${status}.`,
+      latestReportId: reportId,     // ПРИВЯЗЫВАЕМ ОТЧЕТ К УЗЛУ!
       groups: ["Default Node Group"],
       classes: ["profile::base"],
       unresponsive: false,
@@ -189,42 +216,28 @@ function handleReport(req: any, res: any) {
     nodes.unshift(node);
   } else {
     node.status = status;
-    node.lastRunTime = new Date().toISOString();
+    node.lastRun = nowIso;
+    node.lastRunTime = nowIso;
+    node.runDuration = duration;
     node.lastRunDuration = duration;
+    node.latestReportId = reportId; // ОБНОВЛЯЕМ ID ПОСЛЕДНЕГО ОТЧЕТА!
     node.unresponsive = false;
     node.driftDetected = status === "changed";
   }
 
-  const newReport = {
-    id: `rep-${Date.now()}`,
+  broadcastEvent({
+    type: "report_received",
     certname,
     status,
-    environment,
-    timestamp: new Date().toISOString(),
-    runDuration: duration,
-    configVersion: `v${Date.now().toString().slice(-6)}`,
-    resourcesTotal: (reportData.metrics && reportData.metrics.resources && reportData.metrics.resources.total) || 1,
-    resourcesFailed: status === "failed" ? 1 : 0,
-    resourcesChanged: status === "changed" ? 1 : 0,
-    resourcesCorrectiveChange: 0,
-    summary: `Agent catalog execution finished with status: ${status}`,
-    logs: reportData.logs || []
-  };
-
-  reports.unshift(newReport);
-  if (reports.length > 50) reports.pop();
-
-  broadcastEvent({
-    type: status === "failed" ? "failed" : "completed",
-    certname,
+    reportId,
     message: `Received report from ${certname}: ${status} (${duration}s)`,
-    timestamp: new Date().toISOString()
+    timestamp: nowIso
   });
 
   res.json({
     masterHost: os.hostname(),
     success: true,
-    reportId: newReport.id,
+    reportId,
     certname,
     status
   });
@@ -238,6 +251,7 @@ app.post("/api/reports", handleReport);
 const handleNodeRun = (req: any, res: any) => {
   const { certname } = req.params;
   let node = nodes.find(n => n.certname === certname);
+  const nowIso = new Date().toISOString();
 
   // Если узел еще не в списке — создаем его
   if (!node) {
@@ -248,11 +262,12 @@ const handleNodeRun = (req: any, res: any) => {
       status: "unchanged",
       puppetVersion: "8.x",
       os: "Linux (Puppet Agent)",
-      architecture: "x86_64",
-      cores: 4,
-      memoryTotal: "16 GiB",
-      lastRunTime: new Date().toISOString(),
+      arch: "x86_64",
+      lastRun: nowIso,
+      lastRunTime: nowIso,
+      runDuration: 2.5,
       lastRunDuration: 2.5,
+      latestReportId: null,
       groups: ["Default Node Group"],
       classes: ["profile::base"],
       unresponsive: false,
@@ -261,13 +276,15 @@ const handleNodeRun = (req: any, res: any) => {
     nodes.unshift(node);
   }
 
+  node.isAgentRunning = true;
+
   res.json({ success: true, message: `Puppet run started for ${certname}` });
 
   broadcastEvent({
     type: "node_run_started",
     certname,
     message: `Triggered puppet agent -t on ${certname}`,
-    timestamp: new Date().toISOString()
+    timestamp: nowIso
   });
 
   try {
@@ -277,22 +294,64 @@ const handleNodeRun = (req: any, res: any) => {
   } catch (e) {}
 
   setTimeout(() => {
+    const finishedIso = new Date().toISOString();
+    const generatedReportId = `rep-${Date.now()}`;
+
+    // Создаем полноценный отчет прогона
+    const finishedReport = {
+      id: generatedReportId,
+      certname,
+      status: "unchanged",
+      environment: node.environment || "production",
+      time: finishedIso,
+      timestamp: finishedIso,
+      run_duration: 2.5,
+      runDuration: 2.5,
+      configuration_version: `v${Date.now().toString().slice(-6)}`,
+      metrics: {
+        resources: { total: 1, failed: 0, changed: 0, unchanged: 1 },
+        time: { total: 2.5 }
+      },
+      summary: `Manual agent run completed successfully on ${certname}`,
+      logs: [
+        { level: "info", message: "Catalog applied in 2.5 seconds", time: finishedIso }
+      ]
+    };
+
+    reports.unshift(finishedReport);
+    if (reports.length > 100) reports.pop();
+
     if (node) {
-      node.lastRunTime = new Date().toISOString();
+      node.isAgentRunning = false;
+      node.lastRun = finishedIso;
+      node.lastRunTime = finishedIso;
+      node.runDuration = 2.5;
+      node.lastRunDuration = 2.5;
+      node.latestReportId = generatedReportId; // ПРИВЯЗЫВАЕМ НОВЫЙ ОТЧЕТ!
       node.status = "unchanged";
       node.driftDetected = false;
     }
+
     broadcastEvent({
       type: "node_run_finished",
       certname,
+      status: "unchanged",
       message: `Puppet agent execution finished on ${certname}`,
-      timestamp: new Date().toISOString()
+      timestamp: finishedIso
     });
   }, 2500);
 };
 
 app.post("/api/run/:certname", handleNodeRun);
 app.post("/api/nodes/:certname/run", handleNodeRun);
+
+// Delete node
+app.delete("/api/nodes/:certname", (req, res) => {
+  const { certname } = req.params;
+  nodes = nodes.filter(n => n.certname !== certname);
+  reports = reports.filter(r => r.certname !== certname);
+  res.json({ success: true, message: `Node ${certname} deleted` });
+});
 
 // Static serving & Vite middleware
 async function startServer() {
