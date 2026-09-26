@@ -8,6 +8,8 @@
 [![React](https://img.shields.io/badge/frontend-React%2018%20%2B%20Tailwind-61dafb.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/backend-Express%20%2B%20TypeScript-green.svg)](https://nodejs.org/)
 
+**English version (EN)** | [Русская версия (RU)](./README_RU.md)
+
 ---
 
 ## 🌟 Overview
