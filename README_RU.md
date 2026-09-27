@@ -57,12 +57,39 @@
 
 ## 🚀 Быстрый старт
 
-### 1. Требования к окружению
-- Node.js (версии 18.x или 20.x+)
-- npm или yarn
-- Puppet Server 7.x или 8.x
+### 1. Подготовка чистого сервера (Pre-requisites)
+На абсолютно новом чистом сервере (Ubuntu/Debian, CentOS/AlmaLinux/RHEL) достаточно убедиться в наличии утилит `curl` и `git`:
+```bash
+# Для Ubuntu / Debian:
+sudo apt-get update && sudo apt-get install -y curl git
 
-### 2. Клонирование и установка
+# Для RHEL / CentOS / Rocky / AlmaLinux:
+sudo dnf install -y curl git
+```
+
+---
+
+### 2. Рекомендуемый способ: Установка в 1 клик через скрипт службы 🌟
+Если вы разворачиваете Choreo на рабочем сервере как фоновую службу systemd, используйте встроенный скрипт автоматической установки. Он сам определит операционную систему, установит Node.js 20 LTS (если он отсутствует или устарел), соберет проект и запустит фоновую службу `choreo.service`:
+
+```bash
+git clone https://github.com/halif/choreo.git
+cd choreo
+bash install-service-ru.sh
+```
+
+Управление службой:
+```bash
+sudo systemctl status choreo
+sudo systemctl restart choreo
+sudo journalctl -u choreo -f
+```
+
+---
+
+### 3. Ручная установка и режим разработки (Dev Mode)
+
+Если вы хотите запустить проект вручную или вести локальную разработку:
 
 Клонируйте репозиторий:
 ```bash
@@ -75,8 +102,6 @@ cd choreo
 npm install
 ```
 
-### 3. Сборка и запуск
-
 **Продакшн режим (Production):**
 ```bash
 # Сборка React фронтенда
@@ -85,7 +110,7 @@ npm run build
 # Запуск сервера Node.js
 npm run start
 # Либо прямой запуск:
-node server.ts
+node dist/server.cjs
 ```
 
 **Режим разработки с горячей перезагрузкой (Dev Mode):**
@@ -102,7 +127,7 @@ npm run dev
 Чтобы Puppet Server автоматически отправлял отчеты после каждого прогона агента в Choreo, настройте кастомный обработчик отчетов (report processor).
 
 ### Шаг 1: Создайте скрипт процессора отчетов
-На сервере Puppet Master создайте файл `/etc/puppetlabs/code/environments/production/modules/choreo/lib/puppet/reports/choreo_report.rb`:
+На сервере Puppet Master создайте файл `/etc/puppetlabs/puppet/choreo_report.rb`:
 
 ```ruby
 require 'puppet'

@@ -8,7 +8,7 @@
 [![React](https://img.shields.io/badge/frontend-React%2018%20%2B%20Tailwind-61dafb.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/backend-Express%20%2B%20TypeScript-green.svg)](https://nodejs.org/)
 
-**English version (EN)** | [Русская версия (RU)](./README_RU.md)
+[🇷🇺 Русская версия (README.ru.md)](./README.ru.md)
 
 ---
 
@@ -57,12 +57,39 @@ Featuring live Server-Sent Events (SSE), instant report ingestion via webhooks, 
 
 ## 🚀 Quick Start
 
-### 1. Requirements
-- Node.js (v18.x or v20.x+)
-- npm or yarn
-- Puppet Server 7.x / 8.x (optional for development mode)
+### 1. Requirements (Clean Server Prerequisites)
+On a fresh Linux server (Ubuntu/Debian, CentOS/AlmaLinux/RHEL), ensure `curl` and `git` are installed:
+```bash
+# Ubuntu / Debian:
+sudo apt-get update && sudo apt-get install -y curl git
 
-### 2. Installation & Setup
+# RHEL / CentOS / Rocky / AlmaLinux:
+sudo dnf install -y curl git
+```
+
+---
+
+### 2. Recommended: One-Click Automated Systemd Service Install 🌟
+If you are deploying Choreo as a background service on a clean server, use the included installer script. It automatically detects your OS, installs Node.js 20 LTS (if missing or outdated), builds the frontend, and creates/starts the `choreo.service` daemon:
+
+```bash
+git clone https://github.com/halif/choreo.git
+cd choreo
+bash install-service-ru.sh
+```
+
+To manage the background service:
+```bash
+sudo systemctl status choreo
+sudo systemctl restart choreo
+sudo journalctl -u choreo -f
+```
+
+---
+
+### 3. Manual Installation & Development Mode
+
+If you prefer to run Choreo manually or in development mode:
 
 Clone the repository:
 ```bash
@@ -75,8 +102,6 @@ Install dependencies:
 npm install
 ```
 
-### 3. Build & Run
-
 **Production Mode:**
 ```bash
 # Build the React frontend
@@ -85,7 +110,7 @@ npm run build
 # Start the Node.js server
 npm run start
 # Or using node directly:
-node server.ts
+node dist/server.cjs
 ```
 
 **Development Mode (Hot Reloading):**
@@ -102,7 +127,7 @@ Choreo will be accessible at: `http://<YOUR_SERVER_IP>:3000`
 To automatically send Puppet reports to Choreo after each agent run, configure a custom report processor on your Puppet Server.
 
 ### Step 1: Create Report Processor Script
-On your Puppet Server, create `/etc/puppetlabs/code/environments/production/modules/choreo/lib/puppet/reports/choreo_report.rb`:
+On your Puppet Server, create `/etc/puppetlabs/puppet/choreo_report.rb`:
 
 ```ruby
 require 'puppet'
