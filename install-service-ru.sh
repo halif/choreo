@@ -1,138 +1,155 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Choreo Dashboard - Автоматический инсталлятор системной службы (systemd)
-# ==============================================================================
 set -e
 
-# Цвета для красивого вывода
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
+# ==============================================================================
+# ЦВЕТОВАЯ ПАЛИТРА ANSI (Choreo Theme)
+# ==============================================================================
+BOLD='\033[1m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+# Основные цвета
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+GREEN='\033[0;32m'
+AMBER='\033[0;33m'
+SKY='\033[0;36m'
+PURPLE='\033[0;35m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
 
-echo -e "${BLUE}======================================================${NC}"
-echo -e "${BLUE}      Choreo Puppet Dashboard - Установка службы      ${NC}"
-echo -e "${BLUE}======================================================${NC}"
+# Функции форматированного вывода
+log_info()    { echo -e "  ${SKY}ℹ${RESET}  ${WHITE}$1${RESET}"; }
+log_success() { echo -e "  ${GREEN}✔${RESET}  ${BOLD}${GREEN}$1${RESET}"; }
+log_warn()    { echo -e "  ${AMBER}⚠${RESET}  ${AMBER}$1${RESET}"; }
+log_error()   { echo -e "  ${RED}✖${RESET}  ${BOLD}${RED}$1${RESET}"; }
+log_step()    { echo -e "\n${BOLD}${PURPLE}==>${RESET} ${BOLD}${WHITE}$1${RESET}"; }
 
-# 1. Проверка прав root
-if [ "$EUID" -ne 0 ]; then
-  echo -e "${RED}[ОШИБКА] Пожалуйста, запустите скрипт с правами root или через sudo:${NC}"
-  echo -e "  sudo $0"
-  exit 1
+clear 2>/dev/null || true
+
+# Баннер Choreo
+echo -e "${AMBER}"
+cat << "EOF"
+   ______ __
+  / ____// /_   ____   _____ ___   ____
+ / /    / __ \ / __ \ / ___// _ \ / __ \
+/ /___ / / / // /_/ // /   /  __// /_/ /
+\____//_/ /_/ \____//_/    \___/ \____/
+EOF
+echo -e "${RESET}"
+echo -e " ${BOLD}${WHITE}🎭 Choreo v2.5.0 — Puppet Fleet Management Dashboard${RESET}"
+echo -e " ${GRAY}------------------------------------------------------------${RESET}"
+echo -e " ${DIM}Automated Systemd Service Installer & Environment Setup${RESET}\n"
+
+# ------------------------------------------------------------------------------
+# 1. ПРОВЕРКА И УСТАНОВКА NODE.JS
+# ------------------------------------------------------------------------------
+log_step "Шаг 1: Проверка среды исполнения Node.js"
+
+MIN_NODE_VER=18
+CURRENT_NODE_VER=$(node -v 2>/dev/null | cut -d'v' -f2 | cut -d'.' -f1 || echo "0")
+
+if [ -z "$CURRENT_NODE_VER" ] || [ "$CURRENT_NODE_VER" -lt "$MIN_NODE_VER" ]; then
+    log_warn "Node.js не установлен или версия устарела (текущая: v${CURRENT_NODE_VER:-нет}, требуется: v${MIN_NODE_VER}+)."
+    log_info "Подключение официального репозитория NodeSource (Node.js 20 LTS)..."
+
+    if [ -f /etc/debian_version ]; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/dev/null 2>&1
+        sudo apt-get install -y nodejs build-essential >/dev/null 2>&1
+    elif [ -f /etc/redhat-release ]; then
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash - >/dev/null 2>&1
+        sudo yum install -y nodejs gcc-c++ make >/dev/null 2>&1
+    else
+        log_error "Не удалось автоматически определить пакетный менеджер ОС."
+        echo -e "  Пожалуйста, установите Node.js 18+ вручную: https://nodejs.org/"
+        exit 1
+    fi
 fi
 
-# 2. Определение рабочей директории приложения
-# По умолчанию берется текущая директория, где лежит скрипт
-DEFAULT_APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-read -r -p "Путь к каталогу Choreo [по умолчанию: $DEFAULT_APP_DIR]: " INPUT_APP_DIR
-APP_DIR="${INPUT_APP_DIR:-$DEFAULT_APP_DIR}"
+NODE_VERSION_STR=$(node -v 2>/dev/null || echo "не найден")
+NPM_VERSION_STR=$(npm -v 2>/dev/null || echo "не найден")
+log_success "Node.js ${NODE_VERSION_STR} и npm v${NPM_VERSION_STR} готовы к работе."
 
-if [ ! -f "$APP_DIR/package.json" ]; then
-  echo -e "${RED}[ОШИБКА] В директории $APP_DIR не найден package.json!${NC}"
-  echo "Убедитесь, что указали правильный путь к проекту Choreo."
-  exit 1
+# ------------------------------------------------------------------------------
+# 2. УСТАНОВКА ЗАВИСИМОСТЕЙ NPM
+# ------------------------------------------------------------------------------
+log_step "Шаг 2: Установка зависимостей проекта (npm install)"
+log_info "Загрузка пакетов из package.json..."
+
+npm install --silent
+
+log_success "Все зависимости успешно установлены."
+
+# ------------------------------------------------------------------------------
+# 3. СБОРКА ПРОЕКТА
+# ------------------------------------------------------------------------------
+log_step "Шаг 3: Сборка клиентского и серверного бандлов (npm run build)"
+log_info "Компиляция Vite SPA и генерация dist/..."
+
+npm run build
+
+log_success "Сборка завершена без ошибок."
+
+# ------------------------------------------------------------------------------
+# 4. НАСТРОЙКА И ГЕНЕРАЦИЯ SYSTEMD СЛУЖБЫ
+# ------------------------------------------------------------------------------
+log_step "Шаг 4: Конфигурация системного демона systemd"
+
+CHOREO_DIR="$(pwd)"
+CURRENT_USER="${SUDO_USER:-$USER}"
+NODE_BIN="$(which node)"
+
+# Создание симлинка в /usr/bin при необходимости (например, если node из NVM)
+if [ "$NODE_BIN" != "/usr/bin/node" ] && [ ! -f /usr/bin/node ]; then
+    log_info "Создание системного симлинка /usr/bin/node -> ${NODE_BIN}"
+    sudo ln -sf "$NODE_BIN" /usr/bin/node || true
 fi
 
-# 3. Выбор порта
-DEFAULT_PORT="3000"
-read -r -p "Порт для запуска Choreo [по умолчанию: $DEFAULT_PORT]: " INPUT_PORT
-PORT="${INPUT_PORT:-$DEFAULT_PORT}"
+log_info "Генерация unit-файла: ${WHITE}/etc/systemd/system/choreo.service${RESET}"
 
-# 4. Поиск путей к node и npm
-NODE_BIN=$(which node 2>/dev/null || true)
-NPM_BIN=$(which npm 2>/dev/null || true)
-
-if [ -z "$NODE_BIN" ] || [ -z "$NPM_BIN" ]; then
-  echo -e "${RED}[ОШИБКА] Node.js или npm не найдены в системе PATH!${NC}"
-  echo "Пожалуйста, установите Node.js (рекомендуется v18+)."
-  exit 1
-fi
-
-echo -e "\n${YELLOW}Параметры установки:${NC}"
-echo -e "  • Каталог проекта: ${GREEN}$APP_DIR${NC}"
-echo -e "  • Порт приложения: ${GREEN}$PORT${NC}"
-echo -e "  • Исполняемый npm:  ${GREEN}$NPM_BIN${NC}"
-echo -e "  • Исполняемый node: ${GREEN}$NODE_BIN${NC}\n"
-
-# 5. Сборка production-билда (если еще не собран dist)
-echo -e "${BLUE}[1/4] Проверка сборки приложения...${NC}"
-cd "$APP_DIR"
-
-if [ ! -d "$APP_DIR/dist" ]; then
-  echo -e "${YELLOW}Сборка dist не найдена. Запускаем 'npm run build'...${NC}"
-  npm run build
-  echo -e "${GREEN}Сборка успешно завершена.${NC}"
-else
-  read -r -p "Каталог dist уже существует. Пересобрать заново? (y/N): " REBUILD
-  if [[ "$REBUILD" =~ ^[Yy]$ ]]; then
-    npm run build
-    echo -e "${GREEN}Сборка успешно обновлена.${NC}"
-  fi
-fi
-
-# 6. Создание unit-файла systemd
-SERVICE_FILE="/etc/systemd/system/choreo.service"
-echo -e "${BLUE}[2/4] Создание конфигурации systemd: $SERVICE_FILE ...${NC}"
-
-cat <<EOF > "$SERVICE_FILE"
+sudo bash -c "cat <<EOF > /etc/systemd/system/choreo.service
 [Unit]
 Description=Choreo Puppet Management Dashboard
-After=network.target puppetserver.service
-Wants=network-online.target
+After=network.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=$APP_DIR
+User=$CURRENT_USER
+WorkingDirectory=$CHOREO_DIR
 Environment=NODE_ENV=production
-Environment=PORT=$PORT
-Environment=PATH=$(dirname "$NODE_BIN"):$PATH
-ExecStart=$NPM_BIN start
+ExecStart=$NODE_BIN dist/server.cjs
 Restart=always
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=choreo
-
-# Ограничения безопасности
-LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF"
 
-# 7. Применение изменений в systemd
-echo -e "${BLUE}[3/4] Регистрация и активация службы в systemd...${NC}"
-systemctl daemon-reload
-systemctl enable choreo.service
+# ------------------------------------------------------------------------------
+# 5. ПЕРЕЗАГРУЗКА И СТАРТ СЛУЖБЫ
+# ------------------------------------------------------------------------------
+log_step "Шаг 5: Регистрация и запуск службы Choreo"
 
-# 8. Запуск службы
-echo -e "${BLUE}[4/4] Запуск службы choreo...${NC}"
-systemctl restart choreo.service
+sudo systemctl daemon-reload
+sudo systemctl enable choreo >/dev/null 2>&1
+sudo systemctl restart choreo
 
-# Даем пару секунд на старт
 sleep 2
 
-# Проверяем статус
-if systemctl is-active --quiet choreo.service; then
-  # Получаем IP-адрес хоста для подсказки
-  HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-  HOST_IP="${HOST_IP:-localhost}"
+# Определение локального IP сервера
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
 
-  echo -e "\n${GREEN}======================================================${NC}"
-  echo -e "${GREEN}       Служба Choreo успешно установлена и запущена!   ${NC}"
-  echo -e "${GREEN}======================================================${NC}"
-  echo -e "Дашборд доступен в браузере по адресу:"
-  echo -e "  👉  ${BLUE}http://${HOST_IP}:${PORT}${NC}\n"
-  echo -e "Полезные команды для управления службой:"
-  echo -e "  • Статус:      ${YELLOW}systemctl status choreo${NC}"
-  echo -e "  • Перезапуск:  ${YELLOW}systemctl restart choreo${NC}"
-  echo -e "  • Остановка:   ${YELLOW}systemctl stop choreo${NC}"
-  echo -e "  • Логи онлайн: ${YELLOW}journalctl -u choreo -f${NC}"
-  echo -e "======================================================\n"
-else
-  echo -e "\n${RED}[ВНИМАНИЕ] Служба зарегистрирована, но не смогла запуститься.${NC}"
-  echo -e "Посмотрите журнал ошибок командой:"
-  echo -e "  ${YELLOW}journalctl -u choreo -n 30 --no-pager${NC}"
-fi
+echo -e "\n${GREEN}============================================================${RESET}"
+echo -e " ${BOLD}${GREEN}🎉 УСТАНОВКА УСПЕШНО ЗАВЕРШЕНА!${RESET}"
+echo -e "${GREEN}============================================================${RESET}\n"
+
+echo -e "  ${WHITE}Веб-интерфейс доступен по адресам:${RESET}"
+echo -e "  ${BOLD}${SKY}▶  http://${SERVER_IP}:3000${RESET}"
+echo -e "  ${BOLD}${SKY}▶  http://localhost:3000${RESET}\n"
+
+echo -e "  ${WHITE}Полезные команды для управления службой:${RESET}"
+echo -e "  ${DIM}• Проверить статус:${RESET}   ${AMBER}sudo systemctl status choreo${RESET}"
+echo -e "  ${DIM}• Перезапустить:${RESET}      ${AMBER}sudo systemctl restart choreo${RESET}"
+echo -e "  ${DIM}• Просмотр логов:${RESET}     ${AMBER}sudo journalctl -u choreo -f${RESET}\n"
+
+echo -e "${GRAY}------------------------------------------------------------${RESET}"
+sudo systemctl status choreo --no-pager -l
