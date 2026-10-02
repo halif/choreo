@@ -40,6 +40,36 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
   const res = report.metrics?.resources;
   const timeMetrics = report.metrics?.time;
 
+  // Безопасное форматирование времени (в шапке и для логов)
+  const formatDateTime = (rawTime?: string | number) => {
+    if (!rawTime) return '';
+    let timeMs = Number(rawTime);
+    if (!isNaN(timeMs) && timeMs > 0) {
+      if (timeMs < 10000000000) timeMs *= 1000;
+    } else {
+      timeMs = new Date(rawTime).getTime();
+    }
+    if (isNaN(timeMs) || timeMs <= 0) return '';
+    const d = new Date(timeMs);
+    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
+  const formatFullDate = (rawTime?: string | number) => {
+    if (!rawTime) return 'Недавно';
+    let timeMs = Number(rawTime);
+    if (!isNaN(timeMs) && timeMs > 0) {
+      if (timeMs < 10000000000) timeMs *= 1000;
+    } else {
+      timeMs = new Date(rawTime).getTime();
+    }
+    if (isNaN(timeMs) || timeMs <= 0) return 'Недавно';
+    const d = new Date(timeMs);
+    return `${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU')}`;
+  };
+
+  // Красивое округление длительности прогона (3.29s вместо 3.287815292s)
+  const formattedDuration = Number(report.run_duration || 0).toFixed(2);
+
   const handleCopyRaw = () => {
     navigator.clipboard?.writeText(JSON.stringify(report, null, 2));
     setCopied(true);
@@ -80,9 +110,9 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
                 <span>ID: {report.id}</span>
                 <span>•</span>
-                <span>Время: {new Date(report.time).toLocaleString()}</span>
+                <span>Время: {formatFullDate(report.time)}</span>
                 <span>•</span>
-                <span className="text-amber-400 font-semibold">{report.run_duration}s прогон</span>
+                <span className="text-amber-400 font-semibold">{formattedDuration}s прогон</span>
               </div>
             </div>
           </div>
@@ -317,14 +347,18 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                       debug: 'text-slate-400 bg-slate-800 border-slate-700'
                     }[log.level] || 'text-slate-400';
 
+                    const logTimeStr = formatDateTime(log.time);
+
                     return (
                       <div key={i} className="flex items-start gap-2 leading-relaxed hover:bg-slate-900/50 p-1 rounded">
                         <span className={`px-1.5 py-0.2 rounded border text-[10px] font-bold uppercase shrink-0 ${levelColors}`}>
                           {log.level}
                         </span>
-                        <span className="text-slate-500 shrink-0 select-none">
-                          {new Date(log.time).toLocaleTimeString()}
-                        </span>
+                        {logTimeStr ? (
+                          <span className="text-slate-500 shrink-0 select-none">
+                            {logTimeStr}
+                          </span>
+                        ) : null}
                         <span className="text-slate-400 shrink-0 select-none">
                           [{log.source}]:
                         </span>

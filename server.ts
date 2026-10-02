@@ -150,6 +150,16 @@ app.get("/api/groups", (req, res) => {
   res.json(groups);
 });
 
+// Вспомогательная функция для безопасного парсинга даты лога в ISO-строку
+function sanitizeLogTime(rawTime: any, fallbackIso: string): string {
+  if (!rawTime) return fallbackIso;
+  const parsed = new Date(rawTime);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString();
+  }
+  return fallbackIso;
+}
+
 // ПРИЕМ ОТЧЕТОВ ОТ PUPPET SERVER (Webhook)
 function handleReport(req: any, res: any) {
   let reportData = req.body || {};
@@ -161,9 +171,26 @@ function handleReport(req: any, res: any) {
 
   const status = reportData.status || (reportData.failed ? "failed" : reportData.changed ? "changed" : "unchanged");
   const environment = reportData.environment || "production";
-  const duration = Number(reportData.run_duration || reportData.metrics?.time?.total || 2.5);
+
+  // Аккуратное округление длительности до 2 знаков (например 3.29s)
+  const rawDuration = Number(
+    reportData.run_duration ||
+    (reportData.metrics && reportData.metrics.time && reportData.metrics.time.total) ||
+    2.5
+  );
+  const duration = Number(rawDuration.toFixed(2));
+
   const nowIso = new Date().toISOString();
   const reportId = `rep-${Date.now()}`;
+
+  // Очистка и нормализация логов: убираем причину появления "Invalid Date"
+  const rawLogs = Array.isArray(reportData.logs) ? reportData.logs : [];
+  const sanitizedLogs = rawLogs.map((log: any) => ({
+    level: log.level ? String(log.level).toLowerCase() : "info",
+    source: log.source || "Puppet",
+    message: log.message || "",
+    time: sanitizeLogTime(log.time, nowIso)
+  }));
 
   // Формируем отчет, совместимый со ВСЕМИ полями интерфейса
   const newReport = {
@@ -171,9 +198,9 @@ function handleReport(req: any, res: any) {
     certname,
     status,
     environment,
-    time: nowIso,                    // Ключевое поле для ReportsView
+    time: nowIso,                    // Ключевое поле для ReportsView и ReportDetailModal
     timestamp: nowIso,               // Для обратной совместимости
-    run_duration: duration,          // Ключевое поле для ReportsView
+    run_duration: duration,          // Ключевое поле для отображения
     runDuration: duration,           // Для обратной совместимости
     configuration_version: reportData.configuration_version || `v${Date.now().toString().slice(-6)}`,
     metrics: {
@@ -186,7 +213,7 @@ function handleReport(req: any, res: any) {
       time: { total: duration }
     },
     summary: `Agent catalog execution finished with status: ${status}`,
-    logs: reportData.logs || []
+    logs: sanitizedLogs
   };
 
   reports.unshift(newReport);
@@ -297,7 +324,7 @@ const handleNodeRun = (req: any, res: any) => {
     const finishedIso = new Date().toISOString();
     const generatedReportId = `rep-${Date.now()}`;
 
-    // Создаем полноценный отчет прогона
+    // Создаем полноценный отчет прогона с валидным временем логов
     const finishedReport = {
       id: generatedReportId,
       certname,
@@ -314,7 +341,7 @@ const handleNodeRun = (req: any, res: any) => {
       },
       summary: `Manual agent run completed successfully on ${certname}`,
       logs: [
-        { level: "info", message: "Catalog applied in 2.5 seconds", time: finishedIso }
+        { level: "info", source: "Puppet", message: "Catalog applied in 2.5 seconds", time: finishedIso }
       ]
     };
 

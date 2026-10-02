@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.6.0] - 2026-10-02
+
+### 🚀 Added
+- **Automated Service Installer (`install-service.sh`):**
+    - Interactive terminal installer with rich ANSI colors and ASCII branding.
+    - Automatic detection and setup of Node.js 20 LTS via official NodeSource repository (fixes incompatibility on legacy OS distributions like Ubuntu 20.04/CentOS).
+    - Automatically provisions `/etc/systemd/system/choreo.service`, enables and launches the systemd daemon.
+- **Enhanced Puppet Report Processor (`choreo.rb`):**
+    - Added strict ISO-8601 timestamps (`l.time.iso8601`) for all log events.
+    - Extracted real resource counters (`total`, `unchanged`, `changed`, `failed`, `out_of_sync`) from Puppet report payload.
+    - Rounded run execution durations to 2 decimal places (`.round(2)`).
+
+### 🛠️ Fixed
+- **`Invalid Date` in Agent Execution Logs:** Fixed parsing failure in `ReportDetailModal` by introducing safe fallback formatting and ISO timestamps in the report ingestion pipeline.
+- **Run Duration Precision:** Cleaned up excessive floating point decimal strings (e.g., `3.287815292s`) to a crisp `3.29s прогон`.
+- **Node.js Backward Compatibility:** Replaced optional chaining syntax in server bundle for seamless execution across different Node.js environments.
+
+---
+
 ## [2.5.0] - 2026-09-26
 
 ### 🚀 Added
