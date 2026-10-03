@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Server,
-  Zap
+  Zap,
+  Database
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -25,6 +26,7 @@ export const WebhookIntegrationModal: React.FC<WebhookIntegrationModalProps> = (
 }) => {
   const [copiedConf, setCopiedConf] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
+  const [copiedFacts, setCopiedFacts] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<string | null>(null);
 
@@ -63,14 +65,22 @@ report_format = 12
     ]
   }'`;
 
-  const handleCopy = (text: string, type: 'conf' | 'curl') => {
+  const factsSnippet = `# Отправить системные факты Facter с любого сервера одной командой:
+facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
+  -H "Content-Type: application/json" \\
+  -d @-`;
+
+  const handleCopy = (text: string, type: 'conf' | 'curl' | 'facts') => {
     navigator.clipboard?.writeText(text);
     if (type === 'conf') {
       setCopiedConf(true);
       setTimeout(() => setCopiedConf(false), 2000);
-    } else {
+    } else if (type === 'curl') {
       setCopiedCurl(true);
       setTimeout(() => setCopiedCurl(false), 2000);
+    } else {
+      setCopiedFacts(true);
+      setTimeout(() => setCopiedFacts(false), 2000);
     }
   };
 
@@ -295,6 +305,26 @@ report_format = 12
             </div>
             <pre className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 overflow-x-auto">
               {curlSnippet}
+            </pre>
+          </div>
+
+          {/* Integration Option 3: Facter JSON Push */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-slate-200 flex items-center gap-2">
+                <Database className="w-4 h-4 text-emerald-400" />
+                <span>3. Отправка системных фактов Facter (HTTP POST /api/facts)</span>
+              </h4>
+              <button
+                onClick={() => handleCopy(factsSnippet, 'facts')}
+                className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer font-mono text-[11px]"
+              >
+                {copiedFacts ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>Скопировать</span>
+              </button>
+            </div>
+            <pre className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 overflow-x-auto">
+              {factsSnippet}
             </pre>
           </div>
         </div>
