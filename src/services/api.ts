@@ -55,13 +55,33 @@ export const api = {
     if (!res.ok) throw new Error('Failed to delete node');
   },
 
+  // Запрос Facter фактов у узла (синхронизация фактов)
+  async syncNodeFacts(certname: string): Promise<{ success: boolean; facts: any; count: number }> {
+    const res = await fetch(`/api/nodes/${encodeURIComponent(certname)}/sync-facts`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Failed to sync node facts');
+    return res.json();
+  },
+
+  // Прямая загрузка JSON-фактов (от facter -p --json)
+  async uploadFacts(factsData: any): Promise<{ success: boolean; certname: string; factsCount: number }> {
+    const res = await fetch('/api/facts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(factsData),
+    });
+    if (!res.ok) throw new Error('Failed to upload facts');
+    return res.json();
+  },
+
   async triggerNodeRun(certname: string, forcedOutcome?: string): Promise<{ message: string; status: string }> {
     fetch(`/api/nodes/${encodeURIComponent(certname)}/run`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ forcedOutcome: forcedOutcome || "success" })
-    }).catch(e => console.warn("Background run trigger:", e));
-    return { message: "Dispatched", status: "started" };
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ forcedOutcome: forcedOutcome || 'success' }),
+    }).catch((e) => console.warn('Background run trigger:', e));
+    return { message: 'Dispatched', status: 'started' };
   },
 
   async triggerFleetRun(): Promise<{ message: string }> {
@@ -128,7 +148,7 @@ export const api = {
       }
     };
     eventSource.onerror = () => {
-      // EventSource automatically retries connection
+      // EventSource автоматически переподключается
     };
 
     return () => {

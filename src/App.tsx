@@ -17,12 +17,13 @@ import { NodeDetailModal } from './components/NodeDetailModal';
 import { ReportDetailModal } from './components/ReportDetailModal';
 import { AddNodeModal } from './components/AddNodeModal';
 import { WebhookIntegrationModal } from './components/WebhookIntegrationModal';
-import { Check, AlertCircle, Info, RefreshCw } from 'lucide-react';
+import { Check, AlertCircle, Info } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [currentEnvironment, setCurrentEnvironment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedGroup, setSelectedGroup] = useState('all');
 
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [nodes, setNodes] = useState<PuppetNode[]>([]);
@@ -50,7 +51,7 @@ export default function App() {
     try {
       const [m, n, r, g] = await Promise.all([
         api.getMetrics(),
-        api.getNodes({ environment: currentEnvironment }),
+        api.getNodes({ environment: currentEnvironment, group: selectedGroup }),
         api.getReports({ environment: currentEnvironment }),
         api.getGroups()
       ]);
@@ -61,7 +62,7 @@ export default function App() {
     } catch (err) {
       console.error('Error loading Puppet data:', err);
     }
-  }, [currentEnvironment]);
+  }, [currentEnvironment, selectedGroup]);
 
   // Initial load and environment change
   useEffect(() => {
@@ -103,20 +104,20 @@ export default function App() {
 
   // Trigger Run on single node
   const handleTriggerRun = async (certname: string, forcedOutcome?: string) => {
-    showToast(`Запуск puppet agent -t на ${certname}...`, "info");
+    showToast(`Запуск puppet agent -t на ${certname}...`, 'info');
     setNodes((prev) =>
       prev.map((n) => (n.certname === certname ? { ...n, isAgentRunning: true } : n))
     );
     try {
       await api.triggerNodeRun(certname, forcedOutcome);
     } catch (err: any) {
-      console.warn("triggerNodeRun error or timeout:", err);
+      console.warn('triggerNodeRun error or timeout:', err);
     } finally {
       setTimeout(() => {
         setNodes((prev) =>
           prev.map((n) => (n.certname === certname ? { ...n, isAgentRunning: false } : n))
         );
-        showToast(`Прогон puppet agent на ${certname} завершен`, "success");
+        showToast(`Прогон puppet agent на ${certname} завершен`, 'success');
         loadData();
       }, 3000);
     }
@@ -163,14 +164,19 @@ export default function App() {
     }
   };
 
-  // Update node
+  // Update node (classes, facts, groups)
   const handleUpdateNode = async (certname: string, data: Partial<PuppetNode>) => {
     try {
+      // Оптимистичное обновление в UI
+      setNodes((prev) =>
+        prev.map((n) => (n.certname === certname ? { ...n, ...data } : n))
+      );
       await api.updateNode(certname, data);
       showToast(`Конфигурация узла ${certname} сохранена`, 'success');
       loadData();
     } catch (err: any) {
       showToast(err.message || 'Ошибка обновления узла', 'warning');
+      loadData();
     }
   };
 
@@ -273,6 +279,7 @@ export default function App() {
           <GroupsView
             groups={groups}
             onSelectGroupFilter={(groupName) => {
+              setSelectedGroup(groupName);
               setActiveTab('nodes');
             }}
             onCreateGroup={handleCreateGroup}

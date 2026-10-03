@@ -15,10 +15,13 @@ import {
   Cpu,
   HardDrive,
   Copy,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import { PuppetNode, PuppetReport } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { api } from '../services/api';
 
 interface NodeDetailModalProps {
   node: PuppetNode | null;
@@ -43,12 +46,32 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
   const [isEditingClasses, setIsEditingClasses] = useState(false);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [isRunningTerminal, setIsRunningTerminal] = useState(false);
+  const [isSyncingFacts, setIsSyncingFacts] = useState(false);
+  const [factsSyncNotice, setFactsSyncNotice] = useState<string | null>(null);
 
   if (!node) return null;
 
+  // Синхронизация фактов Facter с сервером
+  const handleSyncFacts = async () => {
+    setIsSyncingFacts(true);
+    setFactsSyncNotice(null);
+    try {
+      const res = await api.syncNodeFacts(node.certname);
+      if (res && res.facts) {
+        onUpdateNode(node.certname, { facts: res.facts });
+        setFactsSyncNotice(`Синхронизировано ${res.count || Object.keys(res.facts).length} фактов Facter`);
+      }
+    } catch (e: any) {
+      setFactsSyncNotice(`Ошибка синхронизации: ${e.message}`);
+    } finally {
+      setIsSyncingFacts(false);
+      setTimeout(() => setFactsSyncNotice(null), 4000);
+    }
+  };
+
   const nodeReports = reports.filter(r => r.certname === node.certname);
 
-  // Facts filtering
+  // Фильтрация фактов Facter
   const factsEntries = Object.entries(node.facts || {}).filter(([k, v]) => {
     if (factsSearch.trim() === '') return true;
     const q = factsSearch.toLowerCase().trim();
@@ -219,37 +242,83 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
           {/* 1. FACTS TAB */}
           {activeTab === 'facts' && (
             <div className="space-y-4">
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Фильтр фактов Facter (например: memory, processor, kernel, ip)..."
-                  value={factsSearch}
-                  onChange={(e) => setFactsSearch(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
+              <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Фильтр фактов Facter (например: memory, processor, kernel, ip)..."
+                    value={factsSearch}
+                    onChange={(e) => setFactsSearch(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+                <button
+                  onClick={handleSyncFacts}
+                  disabled={isSyncingFacts}
+                  className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-slate-700 font-medium text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shrink-0 shadow-sm"
+                  title="Опросить Facter на узле или сгенерировать системные факты"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFacts ? 'animate-spin text-amber-400' : ''}`} />
+                  <span>{isSyncingFacts ? 'Опрос Facter...' : 'Синхронизировать факты'}</span>
+                </button>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
-                <table className="w-full text-left font-mono text-xs">
-                  <thead className="bg-slate-900 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
-                    <tr>
-                      <th className="p-3 w-1/3">Имя факта (Fact Name)</th>
-                      <th className="p-3">Значение (Value)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {factsEntries.map(([k, v]) => (
-                      <tr key={k} className="hover:bg-slate-900/40 transition">
-                        <td className="p-3 font-semibold text-amber-400 select-all">{k}</td>
-                        <td className="p-3 text-slate-200 break-all select-all">
-                          {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                        </td>
+              {factsSyncNotice && (
+                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+                  <Info className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>{factsSyncNotice}</span>
+                </div>
+              )}
+
+              {factsEntries.length === 0 ? (
+                <div className="p-8 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center mx-auto text-amber-400">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-slate-200 text-sm">
+                      {factsSearch.trim() ? 'Ничего не найдено по фильтру' : 'Факты Facter ещё не загружены'}
+                    </h5>
+                    <p className="text-slate-400 text-xs max-w-md mx-auto mt-1">
+                      {factsSearch.trim()
+                        ? `По запросу "${factsSearch}" фактов не обнаружено. Попробуйте сбросить поисковый запрос.`
+                        : 'Puppet-отчет содержит только статусы применения каталога. Факты Facter (память, процессор, ОС) передаются отдельным запросом.'}
+                    </p>
+                  </div>
+                  {!factsSearch.trim() && (
+                    <button
+                      onClick={handleSyncFacts}
+                      disabled={isSyncingFacts}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition cursor-pointer shadow mt-2"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFacts ? 'animate-spin' : ''}`} />
+                      <span>Запросить факты у узла (Run Facter)</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-left font-mono text-xs">
+                    <thead className="bg-slate-900 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
+                      <tr>
+                        <th className="p-3 w-1/3">Имя факта (Fact Name)</th>
+                        <th className="p-3">Значение (Value)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {factsEntries.map(([k, v]) => (
+                        <tr key={k} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3 font-semibold text-amber-400 select-all">{k}</td>
+                          <td className="p-3 text-slate-200 break-all select-all">
+                            {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
