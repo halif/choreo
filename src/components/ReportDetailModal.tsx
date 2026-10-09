@@ -70,10 +70,48 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
   // Красивое округление длительности прогона (3.29s вместо 3.287815292s)
   const formattedDuration = Number(report.run_duration || 0).toFixed(2);
 
-  const handleCopyRaw = () => {
-    navigator.clipboard?.writeText(JSON.stringify(report, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Резервное копирование для незащищенных HTTP-соединений (http://192.168.x.x)
+  const copyToClipboardFallback = (text: string): boolean => {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '-9999px';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return successful;
+    } catch (err) {
+      console.warn('Fallback copy failed:', err);
+      return false;
+    }
+  };
+
+  const handleCopyRaw = async () => {
+    const jsonStr = JSON.stringify(report, null, 2);
+    let success = false;
+
+    // Сначала пробуем современный Clipboard API (работает на localhost и https)
+    if (navigator?.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(jsonStr);
+        success = true;
+      } catch {
+        // Если браузер заблокировал по соображениям безопасности HTTP
+        success = copyToClipboardFallback(jsonStr);
+      }
+    } else {
+      success = copyToClipboardFallback(jsonStr);
+    }
+
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const filteredLogs = report.logs?.filter((log) => {
