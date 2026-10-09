@@ -67,13 +67,53 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
     return `${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU')}`;
   };
 
-  // Красивое округление длительности прогона (3.29s вместо 3.287815292s)
+  // Красивое округление длительности прогона
   const formattedDuration = Number(report.run_duration || 0).toFixed(2);
 
-  const handleCopyRaw = () => {
-    navigator.clipboard?.writeText(JSON.stringify(report, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // 100% синхронное копирование в буфер обмена для HTTP и HTTPS
+  const handleCopyRaw = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const jsonStr = JSON.stringify(report, null, 2);
+    let success = false;
+
+    // Шаг 1: Прямое синхронное выделение через <textarea> (работает в любом браузере по HTTP)
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = jsonStr;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'absolute';
+      textarea.style.left = '-9999px';
+      textarea.style.top = (window.scrollY || 0) + 'px';
+      textarea.style.fontSize = '12pt';
+      document.body.appendChild(textarea);
+
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+
+      success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+    } catch (err) {
+      console.warn('execCommand copy failed:', err);
+      success = false;
+    }
+
+    // Шаг 2: Резервный вызов navigator.clipboard
+    if (!success && typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(jsonStr).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      }).catch(() => {});
+      return;
+    }
+
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
   };
 
   const filteredLogs = report.logs?.filter((log) => {
@@ -90,7 +130,15 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden relative">
+        {/* Floating Copied Toast */}
+        {copied && (
+          <div className="absolute top-16 right-6 z-50 flex items-center gap-2 px-3 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2 duration-150">
+            <Check className="w-4 h-4" />
+            <span>JSON скопирован в буфер обмена!</span>
+          </div>
+        )}
+
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/60 flex items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -119,8 +167,13 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={handleCopyRaw}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+              className={`p-2 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
+                copied
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-white'
+              }`}
               title="Скопировать JSON отчета"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -438,7 +491,25 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
 
           {/* 4. RAW JSON TAB */}
           {activeTab === 'raw' && (
-            <div className="relative">
+            <div className="relative space-y-3">
+              <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-400 font-mono text-[11px]">
+                  Полный дамп отчета в формате JSON ({JSON.stringify(report).length} байт)
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyRaw}
+                  className={`px-3 py-1.5 rounded-lg border font-medium text-xs transition cursor-pointer flex items-center gap-1.5 ${
+                    copied
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
+                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                  }`}
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Скопировано!' : 'Скопировать весь JSON'}</span>
+                </button>
+              </div>
+
               <pre className="p-4 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 max-h-[50vh] overflow-auto scrollbar-thin select-all">
                 {JSON.stringify(report, null, 2)}
               </pre>
