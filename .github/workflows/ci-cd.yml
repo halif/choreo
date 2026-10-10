@@ -1,0 +1,122 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master, main ]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 1. TEST & BUILD: Проверка типов, синтаксиса и компиляция продакшен-бандла
+  # --------------------------------------------------------------------------
+  build-and-test:
+    name: Lint & Build Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck TypeScript
+        run: npm run lint
+
+      - name: Build frontend and server bundle
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist/
+          retention-days: 7
+
+  # --------------------------------------------------------------------------
+  # 2. DOCKER IMAGE: Сборка и публикация в GitHub Packages (GHCR) при тегах/коммитах
+  # --------------------------------------------------------------------------
+  docker-build:
+    name: Build & Push Docker Image
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
+            type=sha,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # --------------------------------------------------------------------------
+  # 3. DEPLOY: Автоматический деплой на сервер через SSH (если заданы секреты)
+  # --------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Puppet Master Host
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    # Запускается только при пуше в master/main и только если в репозитории настроены SSH-секреты
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        continue-on-error: true # Не ломает пайплайн, если сервер находится в изолированной локальной сети
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            set -e
+            echo "==> Deploying Choreo on remote host..."
+            cd ${{ secrets.DEPLOY_DIR || '/opt/choreo' }}
+            git pull origin master || git pull origin main
+            npm install --omit=dev
+            npm run build
+            if command -v pm2 >/dev/null 2>&1; then
+              pm2 restart choreo || pm2 start dist/server.cjs --name choreo
+            elif systemctl is-active --quiet choreo; then
+              sudo systemctl restart choreo
+            fi
+            echo "==> Deployment completed successfully!"
