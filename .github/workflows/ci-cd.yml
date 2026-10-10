@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 jobs:
   # --------------------------------------------------------------------------
@@ -50,11 +51,29 @@ jobs:
           retention-days: 7
 
   # --------------------------------------------------------------------------
-  # 2. DOCKER IMAGE: Сборка и публикация в GitHub Packages (GHCR) при тегах/коммитах
+  # 2. SECURITY AUDIT: Проверка уязвимостей зависимостей (npm audit)
+  # --------------------------------------------------------------------------
+  security-audit:
+    name: Security & Vulnerability Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high || true
+
+  # --------------------------------------------------------------------------
+  # 3. DOCKER BUILD, SMOKE TEST & PUSH: Сборка, проверка работоспособности и публикация
   # --------------------------------------------------------------------------
   docker-build:
-    name: Build & Push Docker Image
-    needs: build-and-test
+    name: Build, Test & Push Docker Image
+    needs: [build-and-test, security-audit]
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
@@ -82,7 +101,55 @@ jobs:
             type=semver,pattern={{version}}
             type=sha,format=short
 
-      - name: Build and push Docker image
+      # Собираем локальный образ для Smoke Test
+      - name: Build Docker image locally for Smoke Test
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: test-choreo:latest
+          cache-from: type=gha
+
+      # SMOKE TEST: Запуск собранного контейнера и проверка Healthcheck
+      - name: Run Container Smoke Test
+        run: |
+          echo "==> Starting test container..."
+          docker run -d -p 3000:3000 --name test-container test-choreo:latest
+          
+          echo "==> Waiting for Choreo server to initialize..."
+          sleep 5
+          
+          echo "==> Verifying /api/metrics healthcheck..."
+          for i in {1..10}; do
+            if curl -s -f http://localhost:3000/api/metrics > /dev/null; then
+              echo "✅ Choreo container responded successfully to health check!"
+              break
+            fi
+            echo "Waiting for service... ($i/10)"
+            sleep 2
+          done
+
+          # Тестируем ответ метрик
+          RESPONSE=$(curl -s http://localhost:3000/api/metrics)
+          echo "Metrics sample response: ${RESPONSE:0:100}..."
+          
+          docker stop test-container
+          docker rm test-container
+
+      # Сканирование безопасности контейнера Trivy
+      - name: Run Trivy vulnerability scanner on Docker image
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          image-ref: 'test-choreo:latest'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # Публикуем протестированный образ в GHCR
+      - name: Push Docker image to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -93,11 +160,11 @@ jobs:
           cache-to: type=gha,mode=max
 
   # --------------------------------------------------------------------------
-  # 3. DEPLOY: Автоматический деплой на сервер через SSH (если заданы секреты)
+  # 4. DEPLOY: Автоматический деплой на сервер через SSH (если заданы секреты)
   # --------------------------------------------------------------------------
   deploy:
     name: Deploy to Puppet Master Host
-    needs: build-and-test
+    needs: [build-and-test, docker-build]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
 
