@@ -3,29 +3,29 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Копируем package.json и устанавливаем зависимости для сборки
+# Copy package.json and install dependencies for building
 COPY package.json ./
 RUN npm install
 
-# Копируем исходный код и собираем продакшен-бандл
+# Copy source code and build the production bundle
 COPY . ./
 RUN npm run build
 
-# Продакшен-образ
+# Production image
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Устанавливаем curl для healthcheck
+# Install curl for healthcheck
 RUN apk add --no-cache curl
 
-# Устанавливаем только продакшен зависимости
+# Install only production dependencies
 COPY package.json ./
 RUN npm install --omit=dev && npm cache clean --force
 
-# Копируем скомпилированные артефакты из builder
+# Copy compiled artifacts from builder
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
