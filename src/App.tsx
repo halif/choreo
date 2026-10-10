@@ -12,6 +12,7 @@ import { Navigation, TabType } from './components/Navigation';
 import { OverviewView } from './components/OverviewView';
 import { NodesView } from './components/NodesView';
 import { ReportsView } from './components/ReportsView';
+import { PerformanceView } from './components/PerformanceView';
 import { GroupsView } from './components/GroupsView';
 import { NodeDetailModal } from './components/NodeDetailModal';
 import { ReportDetailModal } from './components/ReportDetailModal';
@@ -167,7 +168,6 @@ export default function App() {
   // Update node (classes, facts, groups)
   const handleUpdateNode = async (certname: string, data: Partial<PuppetNode>) => {
     try {
-      // Оптимистичное обновление в UI
       setNodes((prev) =>
         prev.map((n) => (n.certname === certname ? { ...n, ...data } : n))
       );
@@ -274,7 +274,17 @@ export default function App() {
           />
         )}
 
-        {/* Tab 4: Groups & Classes */}
+        {/* Tab 4: Performance Analytics (Run Performance) */}
+        {activeTab === 'performance' && (
+          <PerformanceView
+            nodes={nodes}
+            reports={reports}
+            onSelectNode={(certname) => setSelectedNodeCertname(certname)}
+            onSelectReport={(reportId) => setSelectedReportId(reportId)}
+          />
+        )}
+
+        {/* Tab 5: Groups & Classes */}
         {activeTab === 'groups' && (
           <GroupsView
             groups={groups}

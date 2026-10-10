@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Server, FileText, FolderKanban } from 'lucide-react';
+import { LayoutDashboard, Server, FileText, FolderKanban, TrendingUp } from 'lucide-react';
 
-export type TabType = 'overview' | 'nodes' | 'reports' | 'groups';
+export type TabType = 'overview' | 'nodes' | 'reports' | 'performance' | 'groups';
 
 interface NavigationProps {
   activeTab: TabType;
@@ -41,6 +41,13 @@ export const Navigation: React.FC<NavigationProps> = ({
       icon: FileText,
       badge: String(reportCount),
       badgeColor: 'bg-slate-800 text-slate-300 border-slate-700'
+    },
+    {
+      id: 'performance' as TabType,
+      label: 'Производительность (Run Performance)',
+      icon: TrendingUp,
+      badge: 'Metrics',
+      badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30'
     },
     {
       id: 'groups' as TabType,
