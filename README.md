@@ -1,9 +1,9 @@
-# 🎭 Choreo v2.6.1
+# 🎭 Choreo v2.6.5
 
 > **Modern, Real-Time Web Dashboard & Control Plane for Puppet Master & Fleet Infrastructure**
 
 [![CI/CD Pipeline](https://github.com/halif/choreo/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/halif/choreo/actions/workflows/ci-cd.yml)
-[![Release](https://img.shields.io/badge/release-v2.6.1-amber.svg)](https://github.com/halif/choreo/releases)
+[![Release](https://img.shields.io/badge/release-v2.6.5-amber.svg)](https://github.com/halif/choreo/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/halif/choreo/pkgs/container/choreo)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Puppet](https://img.shields.io/badge/puppet-7.x%20%7C%208.x-orange.svg)](https://puppet.com/)

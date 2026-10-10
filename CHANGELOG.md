@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.6.5] - 2026-10-10
+
+### 🚀 Added
+- **Run Performance Analytics View:**
+    - Dedicated **Run Performance** tab inspired by OpenVox Control Center.
+    - 4 Key performance indicators: **Avg Run**, **Max Run**, **Min Run**, and **Failed Runs** counter.
+    - Interactive **Run Duration Trends** area chart with Recharts visualizing execution spikes over time.
+    - **Timing Phase Breakdown** bar chart: isolates master catalog compilation time, package installs, file synchronizations, and service states.
+    - **Top Slowest Nodes** rankings table with direct one-click navigation to node telemetry and full transaction reports.
+- **Brand Identity & Favicon:**
+    - Added vector `favicon.svg` with high-resolution amber gradient and signature `C` badge.
+    - Embedded SVG & Apple touch icon references in `index.html`.
+- **Hardened GitHub Actions CI/CD Pipeline:**
+    - Integrated automated container **Smoke Test** that boots the newly created Docker container and verifies `/api/metrics` health check before registry publication.
+    - Added automated security audit jobs (`npm audit` & Aqua Security's **Trivy** vulnerability scanner).
+    - Automated Multi-stage Docker builds pushed to GitHub Container Registry (`ghcr.io/halif/choreo`).
+
+### 🛠️ Fixed
+- **Synchronous Report Clipboard Copy:**
+    - Fixed clipboard copying failures over insecure local HTTP networks (`http://192.168.x.x:3000`) by implementing a synchronous DOM textarea selection fallback alongside `navigator.clipboard`.
+    - Added visual copy confirmation badge and toast notification.
+- **Facter 4 Ingestion:** Fixed certname resolution when piping `facter -p --json` into `/api/nodes/:certname/facts`.
+
+---
+
 ## [2.6.0] - 2026-10-02
 
 ### 🚀 Added
