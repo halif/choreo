@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Choreo
                 </span>
                 <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 border border-amber-400/20 tracking-wider">
-                  v2.6.1
+                  v2.6.5
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-400">
