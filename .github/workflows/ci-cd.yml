@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   # --------------------------------------------------------------------------
-  # 1. TEST & BUILD: Проверка типов, синтаксиса и компиляция продакшен-бандла
+  # 1. TEST & BUILD: Type check, lint, and build production bundle
   # --------------------------------------------------------------------------
   build-and-test:
     name: Lint & Build Application
@@ -51,7 +51,7 @@ jobs:
           retention-days: 7
 
   # --------------------------------------------------------------------------
-  # 2. SECURITY AUDIT: Проверка уязвимостей зависимостей (npm audit)
+  # 2. SECURITY AUDIT: Scan dependencies for vulnerabilities (npm audit)
   # --------------------------------------------------------------------------
   security-audit:
     name: Security & Vulnerability Audit
@@ -69,7 +69,7 @@ jobs:
         run: npm audit --audit-level=high || true
 
   # --------------------------------------------------------------------------
-  # 3. DOCKER BUILD, SMOKE TEST & PUSH: Сборка, проверка работоспособности и публикация
+  # 3. DOCKER BUILD, SMOKE TEST & PUSH: Build, health check, and publish
   # --------------------------------------------------------------------------
   docker-build:
     name: Build, Test & Push Docker Image
@@ -101,7 +101,7 @@ jobs:
             type=semver,pattern={{version}}
             type=sha,format=short
 
-      # Собираем локальный образ для Smoke Test
+      # Build local image for smoke test
       - name: Build Docker image locally for Smoke Test
         uses: docker/build-push-action@v5
         with:
@@ -110,7 +110,7 @@ jobs:
           tags: test-choreo:latest
           cache-from: type=gha
 
-      # SMOKE TEST: Запуск собранного контейнера и проверка Healthcheck
+      # SMOKE TEST: Run the built container and verify health check
       - name: Run Container Smoke Test
         run: |
           echo "==> Starting test container..."
@@ -136,7 +136,7 @@ jobs:
           docker stop test-container
           docker rm test-container
 
-      # Сканирование безопасности контейнера Trivy
+      # Trivy container security scanning
       - name: Run Trivy vulnerability scanner on Docker image
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
@@ -148,7 +148,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
-      # Публикуем протестированный образ в GHCR
+      # Push the tested image to GHCR
       - name: Push Docker image to GHCR
         uses: docker/build-push-action@v5
         with:
@@ -160,7 +160,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # --------------------------------------------------------------------------
-  # 4. DEPLOY: Автоматический деплой на сервер через SSH (если заданы секреты)
+  # 4. DEPLOY: Automated SSH deployment to server (if secrets are configured)
   # --------------------------------------------------------------------------
   deploy:
     name: Deploy to Puppet Master Host
