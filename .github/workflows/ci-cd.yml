@@ -27,10 +27,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Typecheck TypeScript
         run: npm run lint
@@ -95,13 +99,12 @@ jobs:
     name: Deploy to Puppet Master Host
     needs: build-and-test
     runs-on: ubuntu-latest
-    # Запускается только при пуше в master/main и только если в репозитории настроены SSH-секреты
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
 
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
-        continue-on-error: true # Не ломает пайплайн, если сервер находится в изолированной локальной сети
+        continue-on-error: true
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
