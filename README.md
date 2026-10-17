@@ -1,4 +1,4 @@
-# 🎭 Choreo v2.7.0
+# 🎭 Choreo v2.6.5
 
 > **Modern, Real-Time Web Dashboard & Control Plane for Puppet Master & Fleet Infrastructure**
 
@@ -14,11 +14,31 @@
 
 ---
 
+![Choreo Web Dashboard](screens/main.jpg)
+
+---
+
 ## 🌟 Overview
 
 **Choreo** is an open-source, lightweight, and modern alternative to Puppet Enterprise Console and PuppetBoard. It provides system administrators and DevOps engineers with real-time observability and remote run control over Puppet Agent nodes across multiple environments (`production`, `staging`, `development`).
 
 Featuring live Server-Sent Events (SSE), instant report ingestion via webhooks, automated Facter facts synchronization, and single-click execution of `puppet agent -t`, Choreo helps you track infrastructure state and configuration drift effortlessly.
+
+---
+
+## 📸 Screenshots
+
+### 📊 Overview & Real-Time Stream
+![Choreo Overview Dashboard](screens/main.jpg)
+
+### 🖥️ Node Fleet Inventory & Quick Actions
+![Node Fleet Inventory](screens/Nodes.jpg)
+
+### ⚡ Run Performance & Resource Trends
+![Performance Analytics](screens/Performance.jpg)
+
+### 🩺 Puppet Master Server Health & Telemetry
+![Server Health](screens/Health.jpg)
 
 ---
 
