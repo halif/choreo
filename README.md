@@ -1,4 +1,4 @@
-# 🎭 Choreo v2.6.5
+# 🎭 Choreo v2.7.0
 
 > **Modern, Real-Time Web Dashboard & Control Plane for Puppet Master & Fleet Infrastructure**
 
