@@ -55,23 +55,11 @@ export const api = {
     if (!res.ok) throw new Error('Failed to delete node');
   },
 
-  // Запрос Facter фактов у узла (синхронизация фактов)
   async syncNodeFacts(certname: string): Promise<{ success: boolean; facts: any; count: number }> {
     const res = await fetch(`/api/nodes/${encodeURIComponent(certname)}/sync-facts`, {
       method: 'POST',
     });
     if (!res.ok) throw new Error('Failed to sync node facts');
-    return res.json();
-  },
-
-  // Прямая загрузка JSON-фактов (от facter -p --json)
-  async uploadFacts(factsData: any): Promise<{ success: boolean; certname: string; factsCount: number }> {
-    const res = await fetch('/api/facts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(factsData),
-    });
-    if (!res.ok) throw new Error('Failed to upload facts');
     return res.json();
   },
 
@@ -137,6 +125,12 @@ export const api = {
     return res.json();
   },
 
+  async getServerHealth(): Promise<any> {
+    const res = await fetch('/api/server-health');
+    if (!res.ok) throw new Error('Failed to fetch server health');
+    return res.json();
+  },
+
   subscribeToEvents(onEvent: (event: LivePuppetEvent) => void): () => void {
     const eventSource = new EventSource('/api/events');
     eventSource.onmessage = (e) => {
@@ -148,7 +142,7 @@ export const api = {
       }
     };
     eventSource.onerror = () => {
-      // EventSource автоматически переподключается
+      // EventSource automatically retries connection
     };
 
     return () => {
