@@ -13,6 +13,7 @@ import { OverviewView } from './components/OverviewView';
 import { NodesView } from './components/NodesView';
 import { ReportsView } from './components/ReportsView';
 import { PerformanceView } from './components/PerformanceView';
+import { ServerHealthView } from './components/ServerHealthView';
 import { GroupsView } from './components/GroupsView';
 import { NodeDetailModal } from './components/NodeDetailModal';
 import { ReportDetailModal } from './components/ReportDetailModal';
@@ -284,7 +285,12 @@ export default function App() {
           />
         )}
 
-        {/* Tab 5: Groups & Classes */}
+        {/* Tab 5: Puppet Master & Server Health (JVM & Routes) */}
+        {activeTab === 'health' && (
+          <ServerHealthView />
+        )}
+
+        {/* Tab 6: Groups & Classes */}
         {activeTab === 'groups' && (
           <GroupsView
             groups={groups}
