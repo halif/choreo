@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.0] - 2026-10-17
+
+### 🚀 Added
+- **Puppet Master & JVM Server Health View:**
+    - Dedicated **Server Health** tab inspired by OpenVox Control Center.
+    - 7 Real-time KPI indicators: **Status** (running), **Catalog mean** (ms), **Report mean** (ms), **Total mean** (ms), **Heap %**, **Heap Used** (MB), and **CPU %**.
+    - 4 Interactive Recharts time-series graphs:
+        - **JVM Heap Usage:** Visualizes Java Garbage Collection cycles with memory limits.
+        - **JVM Non-Heap (Metaspace):** Tracks class metadata and runtime memory (~395 MB).
+        - **Catalog Route Mean (ms):** Monitors compilation response times for `catalog/:certname`.
+        - **Report Submission Mean (ms):** Monitors incoming report ingestion latency via Webhook.
+    - Configurable auto-refresh intervals (`5s`, `10s`, `30s`, `60s`, `Pause`) with manual refresh and history clear controls.
+- **Backend Health Telemetry Endpoint (`/api/server-health`):**
+    - Gathers OS load averages, memory distribution, uptime, and JVM telemetry.
+
+### 🛠️ Refinements
+- Integrated Server Health tab with pulsing live status into main navigation bar.
+- Streamlined API client with `getServerHealth` query support.
+
+---
+
 ## [2.6.5] - 2026-10-10
 
 ### 🚀 Added

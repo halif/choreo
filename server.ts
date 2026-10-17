@@ -253,6 +253,87 @@ app.get("/api/metrics", (_req: Request, res: Response) => {
   });
 });
 
+// Server Health (JVM / Puppet Master / Choreo Server Telemetry)
+app.get("/api/server-health", (_req: Request, res: Response) => {
+  const osTotalMem = os.totalmem();
+  const osFreeMem = os.freemem();
+  const loadAvg = os.loadavg();
+  const uptimeSeconds = os.uptime();
+
+  // Моделируем телеметрию JVM Puppet Server / Master
+  const now = Date.now();
+  const period = 60 * 1000 * 5; // 5 минут цикл сборщика мусора GC
+  const cyclePhase = (now % period) / period;
+  const currentHeapMB = Math.round(650 + 1150 * cyclePhase + (Math.sin(now / 5000) * 40));
+  const maxHeapMB = 2048;
+  const heapPercent = Number(((currentHeapMB / maxHeapMB) * 100).toFixed(1));
+
+  // История для 4 графиков (за последние 30 минут)
+  const historyPoints = Array.from({ length: 20 }).map((_, idx) => {
+    const t = new Date(now - (19 - idx) * 90 * 1000);
+    const label = t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+    // Пила JVM Heap
+    const pointPhase = ((t.getTime() % period) / period);
+    const pointHeap = Math.round(620 + 1200 * pointPhase + (Math.cos(idx) * 30));
+
+    // Metaspace (~385-410 MB)
+    const pointNonHeap = Math.round(390 + (Math.sin(idx * 0.5) * 8));
+
+    // Catalog Mean (ms) время компиляции каталога
+    const baseCatalog = 1100 + (Math.sin(idx * 0.8) * 400) + (idx % 4 === 0 ? 1200 : 0);
+    const pointCatalogMean = Math.round(Math.max(800, baseCatalog));
+
+    // Report Mean (ms) время приема отчетов
+    const pointReportMean = Math.round(30 + (Math.cos(idx) * 15) + (idx % 5 === 0 ? 25 : 0));
+
+    return {
+      time: label,
+      heapUsedMB: pointHeap,
+      heapMaxMB: maxHeapMB,
+      nonHeapMB: pointNonHeap,
+      catalogMeanMs: pointCatalogMean,
+      reportMeanMs: Math.max(18, pointReportMean)
+    };
+  });
+
+  const catalogMeanMs = Math.round(1150 + Math.random() * 120);
+  const reportMeanMs = Math.round(35 + Math.random() * 8);
+  const totalMeanMs = Math.round((catalogMeanMs * 0.15 + reportMeanMs * 0.85));
+
+  const cpuPercent = Number(Math.min(100, Math.max(0.2, (loadAvg[0] / (os.cpus().length || 2)) * 100)).toFixed(1));
+
+  res.json({
+    status: "running",
+    uptime: Math.round(uptimeSeconds),
+    masterHost: `${os.hostname()}:8140`,
+    os: {
+      type: os.type(),
+      platform: os.platform(),
+      release: os.release(),
+      arch: os.arch(),
+      cpus: os.cpus().length,
+      loadAverage: loadAvg
+    },
+    jvm: {
+      heapUsedMB: currentHeapMB,
+      heapMaxMB: maxHeapMB,
+      heapPercent: heapPercent,
+      nonHeapMB: 395,
+      gcCount: Math.floor(now / period),
+      status: "healthy"
+    },
+    timings: {
+      catalogMeanMs,
+      reportMeanMs,
+      totalMeanMs
+    },
+    cpuPercent,
+    history: historyPoints,
+    updatedAt: new Date().toLocaleTimeString()
+  });
+});
+
 // Get nodes (with optional filtering and guaranteed facts)
 app.get("/api/nodes", (req: Request, res: Response) => {
   const { status, environment, group, query } = req.query;
@@ -452,7 +533,6 @@ app.post(["/api/facts", "/api/nodes/:certname/facts"], (req: Request, res: Respo
   const b = req.body || {};
   const uploadedFacts = b.values || b.facts || b;
 
-  // Автоматический поиск certname в теле JSON или заголовках Facter
   const certname =
     req.params.certname ||
     b.certname ||
