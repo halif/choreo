@@ -1,5 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, Server, FileText, FolderKanban, TrendingUp, Activity } from 'lucide-react';
+import { useTranslation } from '../context/LanguageContext';
 
 export type TabType = 'overview' | 'nodes' | 'reports' | 'performance' | 'health' | 'groups';
 
@@ -20,45 +21,47 @@ export const Navigation: React.FC<NavigationProps> = ({
   reportCount,
   groupCount
 }) => {
+  const { t } = useTranslation();
+
   const tabs = [
     {
       id: 'overview' as TabType,
-      label: 'Сводка',
+      label: t.navOverview,
       icon: LayoutDashboard,
-      badge: failedCount > 0 ? `${failedCount} сбоев` : undefined,
+      badge: failedCount > 0 ? `${failedCount} ${t.failed.toLowerCase()}` : undefined,
       badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40'
     },
     {
       id: 'nodes' as TabType,
-      label: 'Узлы (Nodes)',
+      label: t.navNodes,
       icon: Server,
       badge: String(nodeCount),
       badgeColor: 'bg-slate-800 text-slate-300 border-slate-700'
     },
     {
       id: 'reports' as TabType,
-      label: 'Отчеты Puppet',
+      label: t.navReports,
       icon: FileText,
       badge: String(reportCount),
       badgeColor: 'bg-slate-800 text-slate-300 border-slate-700'
     },
     {
       id: 'performance' as TabType,
-      label: 'Производительность',
+      label: t.navPerformance,
       icon: TrendingUp,
       badge: 'Metrics',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30'
     },
     {
       id: 'health' as TabType,
-      label: 'Здоровье сервера (Server Health)',
+      label: t.navHealth,
       icon: Activity,
       badge: 'JVM / Master',
       badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
     },
     {
       id: 'groups' as TabType,
-      label: 'Группы & Классы',
+      label: t.navGroups,
       icon: FolderKanban,
       badge: String(groupCount),
       badgeColor: 'bg-slate-800 text-slate-300 border-slate-700'
