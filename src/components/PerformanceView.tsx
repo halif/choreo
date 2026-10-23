@@ -4,33 +4,25 @@ import {
   Zap,
   TrendingUp,
   AlertTriangle,
-  RotateCcw,
-  Layers,
-  ArrowUpRight,
   Server,
   Activity,
-  Filter,
-  BarChart3,
-  Sliders,
   CheckCircle2,
-  Calendar
+  Layers
 } from 'lucide-react';
 import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
   Cell
 } from 'recharts';
 import { PuppetNode, PuppetReport } from '../types';
+import { useTranslation } from '../context/LanguageContext';
 
 interface PerformanceViewProps {
   nodes: PuppetNode[];
@@ -45,10 +37,10 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
   onSelectNode,
   onSelectReport
 }) => {
+  const { t, language } = useTranslation();
   const [timeWindow, setTimeWindow] = useState<'all' | '1h' | '24h' | '7d'>('all');
-  const [selectedPhase, setSelectedPhase] = useState<string>('all');
 
-  // Вычисляем показатели длительности
+  // Calculate duration statistics
   const durations = reports
     .map(r => Number(r.run_duration || (r as any).runDuration || 0))
     .filter(d => !isNaN(d) && d > 0);
@@ -67,14 +59,14 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 
   const failedRuns = reports.filter(r => r.status === 'failed').length;
 
-  // 1. Данные для тренда длительности прогонов (Run Duration Trends)
+  // 1. Data for Run Duration Trends
   const durationTrendsData = reports
     .slice(-15)
     .map((r, idx) => {
       let timeLabel = `Run #${idx + 1}`;
       if (r.time || (r as any).timestamp) {
         const d = new Date(r.time || (r as any).timestamp);
-        timeLabel = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        timeLabel = d.toLocaleTimeString(language === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit' });
       }
       const dur = Number(r.run_duration || (r as any).runDuration || 2.5);
       const configTime = r.metrics?.time?.config_retrieval || Number((dur * 0.35).toFixed(2));
@@ -91,7 +83,6 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
       };
     });
 
-  // Если отчетов мало, дополняем реалистичной симуляцией временного ряда
   const trendsChartData = durationTrendsData.length >= 5
     ? durationTrendsData
     : [
@@ -105,8 +96,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
         { name: '17:00', duration: 2.4, configRetrieval: 0.7, catalogApply: 1.7 }
       ];
 
-  // 2. Фазы выполнения Puppet (Timing Phase Breakdown)
-  // config_retrieval (компиляция каталога мастером), package, file, service, exec
+  // 2. Timing Phase Breakdown
   const phaseBreakdown = [
     { phase: 'Catalog Compile (Master)', duration: 1.25, color: '#f59e0b', share: '32%' },
     { phase: 'Package Management', duration: 0.95, color: '#38bdf8', share: '24%' },
@@ -115,7 +105,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
     { phase: 'Facts / PluginSync', duration: 0.28, color: '#fb7185', share: '7%' }
   ];
 
-  // 3. Топ медленных узлов (Top Slowest Nodes)
+  // 3. Top Slowest Nodes
   const slowestNodes = [...nodes]
     .map(n => {
       const nodeReports = reports.filter(r => r.certname === n.certname);
@@ -149,13 +139,13 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                Run Performance & Timing Analytics
+                {t.perfTitle}
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono font-normal">
-                  {reports.length} прогонов / {nodes.length} узлов
+                  {reports.length} {language === 'ru' ? 'прогонов' : 'runs'} / {nodes.length} {language === 'ru' ? 'узлов' : 'nodes'}
                 </span>
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Метрики скорости применения каталогов, фазы компиляции и выявление узких мест инфраструктуры
+                {t.perfSubtitle}
               </p>
             </div>
           </div>
@@ -174,72 +164,72 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {w === 'all' ? 'Всё время' : w === '1h' ? '1 час' : w === '24h' ? '24 часа' : '7 дней'}
+                {w === 'all' ? t.timeWindowAll : w === '1h' ? t.timeWindow1h : w === '24h' ? t.timeWindow24h : t.timeWindow7d}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* 4 KPI Cards (как в OpenVox) */}
+      {/* 4 KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Avg Run */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-[11px]">Среднее время (Avg Run)</span>
+            <span className="font-semibold uppercase tracking-wider text-[11px]">{t.avgRun}</span>
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black font-mono text-white">{avgRun}s</span>
-            <span className="text-xs text-slate-400">/ прогон</span>
+            <span className="text-xs text-slate-400">/ {language === 'ru' ? 'прогон' : 'run'}</span>
           </div>
           <div className="mt-2 text-[11px] text-emerald-400 flex items-center gap-1">
-            <span>● В пределах SLA (&lt; 15s)</span>
+            <span>● {language === 'ru' ? 'В пределах SLA (< 15s)' : 'Within target SLA (< 15s)'}</span>
           </div>
         </div>
 
         {/* Max Run */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-[11px]">Макс. прогон (Max Run)</span>
+            <span className="font-semibold uppercase tracking-wider text-[11px]">{t.maxRun}</span>
             <Zap className="w-4 h-4 text-rose-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black font-mono text-rose-400">{maxRun}s</span>
-            <span className="text-xs text-slate-400">пиковое время</span>
+            <span className="text-xs text-slate-400">{language === 'ru' ? 'пиковое время' : 'peak duration'}</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400">
-            Зафиксировано на ресурсоемких узлах
+            {language === 'ru' ? 'Зафиксировано на ресурсоемких узлах' : 'Recorded on heavy catalog runs'}
           </div>
         </div>
 
         {/* Min Run */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-[11px]">Мин. прогон (Min Run)</span>
+            <span className="font-semibold uppercase tracking-wider text-[11px]">{t.minRun}</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black font-mono text-emerald-400">{minRun}s</span>
-            <span className="text-xs text-slate-400">быстрый ответ</span>
+            <span className="text-xs text-slate-400">{language === 'ru' ? 'быстрый ответ' : 'fast response'}</span>
           </div>
           <div className="mt-2 text-[11px] text-emerald-400/80">
-            Кэшированные каталоги (In Sync)
+            {language === 'ru' ? 'Кэшированные каталоги (In Sync)' : 'Cached catalogs (In Sync)'}
           </div>
         </div>
 
         {/* Failed runs */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-[11px]">Сбоев прогонов (Failed)</span>
+            <span className="font-semibold uppercase tracking-wider text-[11px]">{t.failedRuns}</span>
             <AlertTriangle className="w-4 h-4 text-rose-500" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black font-mono text-rose-400">{failedRuns}</span>
-            <span className="text-xs text-slate-400">неудачных отчетов</span>
+            <span className="text-xs text-slate-400">{language === 'ru' ? 'неудачных отчетов' : 'failed reports'}</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400">
-            Очередь выполнения: <strong className="text-white">0 задач</strong>
+            {language === 'ru' ? 'Очередь выполнения:' : 'Execution queue:'} <strong className="text-white">0</strong>
           </div>
         </div>
       </div>
@@ -252,10 +242,10 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Activity className="w-4 h-4 text-sky-400" />
-                <span>Run Duration Trends (Тренд длительности)</span>
+                <span>{t.durationTrends}</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Динамика времени выполнения последних прогонов в секундах
+                {language === 'ru' ? 'Динамика времени выполнения последних прогонов в секундах' : 'Execution run duration sequence in seconds'}
               </p>
             </div>
             <span className="text-[11px] font-mono px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded">
@@ -287,7 +277,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                 <Area
                   type="monotone"
                   dataKey="duration"
-                  name="Время прогона"
+                  name={t.duration}
                   stroke="#38bdf8"
                   strokeWidth={2.5}
                   fillOpacity={1}
@@ -298,16 +288,16 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
           </div>
         </div>
 
-        {/* 2. Timing Phase Breakdown (Разбивка фаз Puppet) */}
+        {/* 2. Timing Phase Breakdown */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Layers className="w-4 h-4 text-amber-400" />
-                <span>Timing Phase Breakdown (Разбивка по фазам)</span>
+                <span>{t.timingBreakdown}</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Каталог: компиляция мастером vs применение ресурсов на агенте
+                {language === 'ru' ? 'Каталог: компиляция мастером vs применение ресурсов на агенте' : 'Master compilation vs agent-side resource enforcement'}
               </p>
             </div>
             <span className="text-[11px] font-mono px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded">
@@ -328,9 +318,9 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                     borderRadius: '0.75rem',
                     fontSize: '12px'
                   }}
-                  formatter={(val: any) => [`${val} сек`, 'Длительность']}
+                  formatter={(val: any) => [`${val} s`, t.duration]}
                 />
-                <Bar dataKey="duration" name="Секунды" radius={[0, 6, 6, 0]}>
+                <Bar dataKey="duration" name={language === 'ru' ? 'Секунды' : 'Seconds'} radius={[0, 6, 6, 0]}>
                   {phaseBreakdown.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -341,7 +331,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
         </div>
       </div>
 
-      {/* 3. Top Slowest Nodes Table (как в OpenVox: Top 10 Slowest Nodes) */}
+      {/* 3. Top Slowest Nodes Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -349,12 +339,14 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
               <Server className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Top Slowest Nodes (Самые медленные узлы)</h3>
-              <p className="text-xs text-slate-400">Узлы с наибольшей длительностью компиляции и применения манифестов</p>
+              <h3 className="text-sm font-bold text-white">{t.topSlowest}</h3>
+              <p className="text-xs text-slate-400">
+                {language === 'ru' ? 'Узлы с наибольшей длительностью компиляции и применения манифестов' : 'Nodes experiencing highest compilation and convergence latency'}
+              </p>
             </div>
           </div>
           <span className="text-xs font-mono text-slate-400">
-            Ранжировано по среднему времени
+            {language === 'ru' ? 'Ранжировано по среднему времени' : 'Ranked by average duration'}
           </span>
         </div>
 
@@ -362,11 +354,11 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-4">FQDN узла (Certname)</th>
-                <th className="py-3 px-4">IP / ОС</th>
-                <th className="py-3 px-4">Ресурсов в каталоге</th>
-                <th className="py-3 px-4">Время прогона</th>
-                <th className="py-3 px-4 text-right">Действия</th>
+                <th className="py-3 px-4">{t.certname}</th>
+                <th className="py-3 px-4">{t.ipAddress}</th>
+                <th className="py-3 px-4">{language === 'ru' ? 'Ресурсов в каталоге' : 'Catalog Resources'}</th>
+                <th className="py-3 px-4">{t.duration}</th>
+                <th className="py-3 px-4 text-right">{t.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -389,7 +381,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                   </td>
                   <td className="py-3.5 px-4 text-slate-300">
                     <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200">
-                      {item.resourcesCount} ресурсов ({item.classesCount} классов)
+                      {item.resourcesCount} {language === 'ru' ? 'ресурсов' : 'resources'} ({item.classesCount} {language === 'ru' ? 'классов' : 'classes'})
                     </span>
                   </td>
                   <td className="py-3.5 px-4">
@@ -411,14 +403,14 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                         onClick={() => onSelectNode(item.certname)}
                         className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer text-[11px]"
                       >
-                        Инвентарь
+                        {t.inspectNode}
                       </button>
                       {item.latestReportId && (
                         <button
                           onClick={() => onSelectReport(item.latestReportId)}
                           className="px-2.5 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition cursor-pointer text-[11px]"
                         >
-                          Отчет
+                          {language === 'ru' ? 'Отчет' : 'Report'}
                         </button>
                       )}
                     </div>

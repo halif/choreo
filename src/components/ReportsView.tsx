@@ -1,17 +1,11 @@
 import React, { useState } from 'react';
 import {
-  FileText,
   Search,
-  CheckCircle2,
-  XCircle,
-  RefreshCw,
-  Clock,
-  Layers,
-  ArrowRight,
-  SlidersHorizontal
+  ArrowRight
 } from 'lucide-react';
 import { PuppetReport } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { useTranslation } from '../context/LanguageContext';
 
 interface ReportsViewProps {
   reports: PuppetReport[];
@@ -26,6 +20,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   onSelectReport,
   onSelectNode
 }) => {
+  const { t, language } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [envFilter, setEnvFilter] = useState('all');
@@ -35,55 +30,23 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     if (envFilter !== 'all' && r.environment !== envFilter) return false;
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
-      const matchNode = (r.certname || '').toLowerCase().includes(q);
-      const matchVersion = (r.configuration_version || '').toLowerCase().includes(q);
-      const matchId = (r.id || '').toLowerCase().includes(q);
+      const matchNode = r.certname.toLowerCase().includes(q);
+      const matchVersion = r.configuration_version?.toLowerCase().includes(q);
+      const matchId = r.id.toLowerCase().includes(q);
       if (!matchNode && !matchVersion && !matchId) return false;
     }
     return true;
   });
 
-  // Безопасное и умное форматирование даты
-  const formatDateTime = (rawTime?: string | number) => {
-    if (!rawTime) {
-      return { relative: 'только что', full: 'Недавно' };
-    }
-
-    let timeMs = 0;
-    // Проверяем, число ли это (timestamp)
-    const numericTime = Number(rawTime);
-    if (!isNaN(numericTime) && numericTime > 0) {
-      // Если timestamp в секундах (10 цифр), переводим в миллисекунды
-      timeMs = numericTime < 10000000000 ? numericTime * 1000 : numericTime;
-    } else {
-      timeMs = new Date(rawTime).getTime();
-    }
-
-    // Если дата все равно некорректная
-    if (isNaN(timeMs) || timeMs <= 0) {
-      return { relative: 'только что', full: 'Недавно' };
-    }
-
-    const diffMs = Math.max(0, Date.now() - timeMs);
-    const minutes = Math.floor(diffMs / 60000);
-
-    let relative = 'только что';
-    if (minutes >= 1 && minutes < 60) {
-      relative = `${minutes} мин назад`;
-    } else if (minutes >= 60 && minutes < 1440) {
-      relative = `${Math.floor(minutes / 60)} ч назад`;
-    } else if (minutes >= 1440) {
-      relative = `${Math.floor(minutes / 1440)} д назад`;
-    }
-
-    const dateObj = new Date(timeMs);
-    const full = `${dateObj.toLocaleDateString('ru-RU')} ${dateObj.toLocaleTimeString('ru-RU', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })}`;
-
-    return { relative, full };
+  const formatRelativeTime = (timeStr: string) => {
+    const ms = Date.now() - new Date(timeStr).getTime();
+    const minutes = Math.floor(ms / (60 * 1000));
+    if (minutes < 1) return t.justNow;
+    if (minutes < 60) return `${minutes} ${t.minutesAgo}`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} ${t.hoursAgo}`;
+    const days = Math.floor(hours / 24);
+    return `${days} ${t.daysAgo}`;
   };
 
   return (
@@ -95,7 +58,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Поиск отчетов по FQDN, номеру ревизии или ID..."
+            placeholder={t.searchReportsPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
@@ -106,28 +69,28 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           {/* Status filter */}
           <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300">
-            <span className="text-slate-400">Статус:</span>
+            <span className="text-slate-400">{language === 'ru' ? 'Статус:' : 'Status:'}</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900 text-slate-200">Все статусы</option>
-              <option value="failed" className="bg-slate-900 text-slate-200">Сбои</option>
-              <option value="changed" className="bg-slate-900 text-slate-200">С изменениями</option>
-              <option value="unchanged" className="bg-slate-900 text-slate-200">Без изменений</option>
+              <option value="all" className="bg-slate-900 text-slate-200">{t.allStatuses}</option>
+              <option value="failed" className="bg-slate-900 text-slate-200">{t.statusFailed}</option>
+              <option value="changed" className="bg-slate-900 text-slate-200">{t.statusChanged}</option>
+              <option value="unchanged" className="bg-slate-900 text-slate-200">{t.statusUnchanged}</option>
             </select>
           </div>
 
           {/* Environment filter */}
           <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300">
-            <span className="text-slate-400">Окружение:</span>
+            <span className="text-slate-400">{t.environment}:</span>
             <select
               value={envFilter}
               onChange={(e) => setEnvFilter(e.target.value)}
               className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900 text-slate-200">Все окружения</option>
+              <option value="all" className="bg-slate-900 text-slate-200">{t.allEnvironments}</option>
               <option value="production" className="bg-slate-900 text-slate-200">Production</option>
               <option value="staging" className="bg-slate-900 text-slate-200">Staging</option>
               <option value="development" className="bg-slate-900 text-slate-200">Development</option>
@@ -142,28 +105,27 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <table className="w-full text-left text-xs sm:text-sm">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[11px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th className="p-3.5">Статус</th>
-                <th className="p-3.5">Узел (Certname)</th>
-                <th className="p-3.5">Время прогона</th>
-                <th className="p-3.5">Окружение</th>
-                <th className="p-3.5">Версия конфигурации</th>
-                <th className="p-3.5">Метрики ресурсов</th>
-                <th className="p-3.5">Длительность</th>
-                <th className="p-3.5 text-right">Отчет</th>
+                <th className="p-3.5">{language === 'ru' ? 'Статус' : 'Status'}</th>
+                <th className="p-3.5">{t.certname}</th>
+                <th className="p-3.5">{t.lastRunTime}</th>
+                <th className="p-3.5">{t.environment}</th>
+                <th className="p-3.5">{t.manifestVersion}</th>
+                <th className="p-3.5">{language === 'ru' ? 'Метрики ресурсов' : 'Resource Metrics'}</th>
+                <th className="p-3.5">{t.duration}</th>
+                <th className="p-3.5 text-right">{language === 'ru' ? 'Отчет' : 'Report'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filteredReports.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-500">
-                    Отчеты по заданным параметрам не найдены.
+                    {t.noReportsFound}
                   </td>
                 </tr>
               ) : (
                 filteredReports.map((report) => {
                   const res = report.metrics?.resources;
                   const isSelected = selectedReportId === report.id;
-                  const dateInfo = formatDateTime(report.time || (report as any).timestamp);
 
                   return (
                     <tr
@@ -197,10 +159,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       {/* Run Time */}
                       <td className="p-3.5 whitespace-nowrap">
                         <div className="text-slate-200 font-medium">
-                          {dateInfo.relative}
+                          {formatRelativeTime(report.time)}
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono">
-                          {dateInfo.full}
+                          {new Date(report.time).toLocaleDateString()} {new Date(report.time).toLocaleTimeString()}
                         </div>
                       </td>
 
@@ -225,18 +187,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       {/* Metrics Badges */}
                       <td className="p-3.5">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                          {res && res.failed > 0 && (
+                          {res?.failed > 0 && (
                             <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                              {res.failed} сбоев
+                              {res.failed} {language === 'ru' ? 'сбоев' : 'failed'}
                             </span>
                           )}
-                          {res && res.changed > 0 && (
+                          {res?.changed > 0 && (
                             <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                              {res.changed} изм
+                              {res.changed} {language === 'ru' ? 'изм' : 'changed'}
                             </span>
                           )}
                           <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                            {res?.unchanged ?? 0} в норме
+                            {res?.unchanged ?? 0} {t.statusUnchanged.toLowerCase()}
                           </span>
                           <span className="text-slate-500">/ {res?.total ?? 0}</span>
                         </div>
@@ -256,7 +218,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                           }}
                           className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-amber-400 text-xs font-medium transition flex items-center gap-1 ml-auto cursor-pointer"
                         >
-                          <span>Детали</span>
+                          <span>{language === 'ru' ? 'Детали' : 'Details'}</span>
                           <ArrowRight className="w-3 h-3" />
                         </button>
                       </td>
@@ -270,7 +232,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
         {/* Footer */}
         <div className="p-3.5 bg-slate-950/80 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
-          <span>Всего отчетов в реестре: {filteredReports.length}</span>
+          <span>
+            {language === 'ru' ? 'Всего отчетов в реестре:' : 'Total reports in registry:'} {filteredReports.length}
+          </span>
           <span className="font-mono text-[11px] text-slate-500">
             Puppet Transaction Report API
           </span>

@@ -4,20 +4,17 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  RefreshCw,
-  Terminal,
   Code2,
   Copy,
   Check,
-  ExternalLink,
   Layers,
   Cpu,
-  Search
+  Search,
+  Terminal
 } from 'lucide-react';
 import { PuppetReport } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { useTranslation } from '../context/LanguageContext';
 
 interface ReportDetailModalProps {
   report: PuppetReport | null;
@@ -27,20 +24,25 @@ interface ReportDetailModalProps {
 
 export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
   report,
-  onClose,
-  onSelectNode
+  onClose
 }) => {
+  const { t, language } = useTranslation();
   const [activeTab, setActiveTab] = useState<'events' | 'logs' | 'timing' | 'raw'>('events');
-  const [copied, setCopied] = useState(false);
   const [logFilterLevel, setLogFilterLevel] = useState<string>('all');
   const [logSearch, setLogSearch] = useState('');
+  const [copied, setCopied] = useState(false);
 
   if (!report) return null;
 
   const res = report.metrics?.resources;
-  const timeMetrics = report.metrics?.time;
+  const timeMetrics = report.metrics?.time || {
+    config_retrieval: 1.8,
+    package: 4.2,
+    service: 2.1,
+    file: 1.1,
+    total: report.run_duration || 9.2
+  };
 
-  // Безопасное форматирование времени (в шапке и для логов)
   const formatDateTime = (rawTime?: string | number) => {
     if (!rawTime) return '';
     let timeMs = Number(rawTime);
@@ -51,26 +53,24 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
     }
     if (isNaN(timeMs) || timeMs <= 0) return '';
     const d = new Date(timeMs);
-    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return d.toLocaleTimeString(language === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
   const formatFullDate = (rawTime?: string | number) => {
-    if (!rawTime) return 'Недавно';
+    if (!rawTime) return language === 'ru' ? 'Недавно' : 'Recently';
     let timeMs = Number(rawTime);
     if (!isNaN(timeMs) && timeMs > 0) {
       if (timeMs < 10000000000) timeMs *= 1000;
     } else {
       timeMs = new Date(rawTime).getTime();
     }
-    if (isNaN(timeMs) || timeMs <= 0) return 'Недавно';
+    if (isNaN(timeMs) || timeMs <= 0) return language === 'ru' ? 'Недавно' : 'Recently';
     const d = new Date(timeMs);
-    return `${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU')}`;
+    return `${d.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US')} ${d.toLocaleTimeString(language === 'ru' ? 'ru-RU' : 'en-US')}`;
   };
 
-  // Красивое округление длительности прогона
   const formattedDuration = Number(report.run_duration || 0).toFixed(2);
 
-  // 100% синхронное копирование в буфер обмена для HTTP и HTTPS
   const handleCopyRaw = (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -80,7 +80,6 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
     const jsonStr = JSON.stringify(report, null, 2);
     let success = false;
 
-    // Шаг 1: Прямое синхронное выделение через <textarea> (работает в любом браузере по HTTP)
     try {
       const textarea = document.createElement('textarea');
       textarea.value = jsonStr;
@@ -101,7 +100,6 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
       success = false;
     }
 
-    // Шаг 2: Резервный вызов navigator.clipboard
     if (!success && typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(jsonStr).then(() => {
         setCopied(true);
@@ -135,7 +133,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
         {copied && (
           <div className="absolute top-16 right-6 z-50 flex items-center gap-2 px-3 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2 duration-150">
             <Check className="w-4 h-4" />
-            <span>JSON скопирован в буфер обмена!</span>
+            <span>{t.copiedJson}</span>
           </div>
         )}
 
@@ -158,9 +156,11 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
                 <span>ID: {report.id}</span>
                 <span>•</span>
-                <span>Время: {formatFullDate(report.time)}</span>
+                <span>{language === 'ru' ? 'Время:' : 'Time:'} {formatFullDate(report.time)}</span>
                 <span>•</span>
-                <span className="text-amber-400 font-semibold">{formattedDuration}s прогон</span>
+                <span className="text-amber-400 font-semibold">
+                  {formattedDuration}s {language === 'ru' ? 'прогон' : 'run'}
+                </span>
               </div>
             </div>
           </div>
@@ -174,7 +174,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                   ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
                   : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-white'
               }`}
-              title="Скопировать JSON отчета"
+              title={t.copyJsonReport}
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             </button>
@@ -190,27 +190,31 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
         {/* Quick KPI Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 p-4 bg-slate-950/40 border-b border-slate-800 text-xs">
           <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Всего ресурсов</span>
+            <span className="text-slate-400 block text-[10px] uppercase">
+              {language === 'ru' ? 'Всего ресурсов' : 'Total Resources'}
+            </span>
             <span className="text-sm font-mono font-bold text-white">{res?.total ?? 0}</span>
           </div>
           <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">В норме</span>
+            <span className="text-slate-400 block text-[10px] uppercase">{t.statusUnchanged}</span>
             <span className="text-sm font-mono font-bold text-emerald-400">{res?.unchanged ?? 0}</span>
           </div>
           <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Изменено</span>
+            <span className="text-slate-400 block text-[10px] uppercase">{t.statusChanged}</span>
             <span className="text-sm font-mono font-bold text-sky-400">{res?.changed ?? 0}</span>
           </div>
           <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Ошибок</span>
+            <span className="text-slate-400 block text-[10px] uppercase">{t.statusFailed}</span>
             <span className="text-sm font-mono font-bold text-rose-400">{res?.failed ?? 0}</span>
           </div>
           <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Рассинхрон</span>
+            <span className="text-slate-400 block text-[10px] uppercase">
+              {language === 'ru' ? 'Рассинхрон' : 'Out of sync'}
+            </span>
             <span className="text-sm font-mono font-bold text-amber-400">{res?.out_of_sync ?? 0}</span>
           </div>
           <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Версия манифеста</span>
+            <span className="text-slate-400 block text-[10px] uppercase">{t.manifestVersion}</span>
             <span className="text-xs font-mono text-slate-300 truncate block" title={report.configuration_version}>
               {report.configuration_version || '8a4c11b'}
             </span>
@@ -228,7 +232,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>События ресурсов ({report.resource_events?.length || 0})</span>
+            <span>{t.resourceEvents} ({report.resource_events?.length || 0})</span>
           </button>
 
           <button
@@ -240,7 +244,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>Лог выполнения агента ({report.logs?.length || 0})</span>
+            <span>{t.agentLogs} ({report.logs?.length || 0})</span>
           </button>
 
           <button
@@ -252,7 +256,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Время выполнения (Метрики)</span>
+            <span>{t.timingMetrics}</span>
           </button>
 
           <button
@@ -264,7 +268,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>JSON отчет</span>
+            <span>{t.rawJsonTab}</span>
           </button>
         </div>
 
@@ -276,8 +280,14 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
               {(!report.resource_events || report.resource_events.length === 0) ? (
                 <div className="p-12 text-center text-slate-400 bg-slate-950/40 rounded-xl border border-slate-800">
                   <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
-                  <p className="font-medium text-slate-300">События изменений не зафиксированы</p>
-                  <p className="text-slate-500 mt-1">Все ресурсы узла соответствуют целевому состоянию каталога (In Sync).</p>
+                  <p className="font-medium text-slate-300">
+                    {language === 'ru' ? 'События изменений не зафиксированы' : 'No resource change events recorded'}
+                  </p>
+                  <p className="text-slate-500 mt-1">
+                    {language === 'ru'
+                      ? 'Все ресурсы узла соответствуют целевому состоянию каталога (In Sync).'
+                      : 'All managed node resources are in target compliance state (In Sync).'}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -311,7 +321,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                             )}
                           </div>
                           <span className="text-slate-400 text-[11px]">
-                            Свойство: <strong className="text-slate-200">{event.property}</strong>
+                            {language === 'ru' ? 'Свойство:' : 'Property:'} <strong className="text-slate-200">{event.property}</strong>
                           </span>
                         </div>
 
@@ -322,13 +332,17 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                             <div className="mt-2 pt-2 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                               {event.previous_value && (
                                 <div>
-                                  <span className="text-slate-500 block">Предыдущее значение:</span>
+                                  <span className="text-slate-500 block">
+                                    {language === 'ru' ? 'Предыдущее значение:' : 'Previous value:'}
+                                  </span>
                                   <span className="text-rose-400">{event.previous_value}</span>
                                 </div>
                               )}
                               {event.desired_value && (
                                 <div>
-                                  <span className="text-slate-500 block">Требуемое значение:</span>
+                                  <span className="text-slate-500 block">
+                                    {language === 'ru' ? 'Требуемое значение:' : 'Desired value:'}
+                                  </span>
                                   <span className="text-emerald-400">{event.desired_value}</span>
                                 </div>
                               )}
@@ -339,7 +353,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                         {/* Manifest Line source */}
                         {event.file && (
                           <div className="mt-2 text-[10px] text-slate-500 flex items-center gap-1.5">
-                            <span>Файл манифеста:</span>
+                            <span>{language === 'ru' ? 'Файл манифеста:' : 'Manifest:'}</span>
                             <span className="text-slate-400 underline">{event.file}:{event.line || 1}</span>
                           </div>
                         )}
@@ -376,7 +390,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                   <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Фильтр по строкам лога..."
+                    placeholder={language === 'ru' ? 'Фильтр по строкам лога...' : 'Filter log entries...'}
                     value={logSearch}
                     onChange={(e) => setLogSearch(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 pl-8 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
@@ -388,7 +402,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 font-mono text-[11px] sm:text-xs max-h-[50vh] overflow-y-auto space-y-1.5 scrollbar-thin">
                 {filteredLogs.length === 0 ? (
                   <div className="text-slate-500 py-4 text-center">
-                    Логи отсутствуют или отфильтрованы.
+                    {language === 'ru' ? 'Логи отсутствуют или отфильтрованы.' : 'No log lines match current filters.'}
                   </div>
                 ) : (
                   filteredLogs.map((log, i) => {
@@ -433,14 +447,14 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
                   <h4 className="font-semibold text-slate-200 mb-3 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-amber-400" />
-                    <span>Время выполнения по типам ресурсов</span>
+                    <span>{language === 'ru' ? 'Время выполнения по типам ресурсов' : 'Execution Time by Resource Type'}</span>
                   </h4>
                   <div className="space-y-3 font-mono">
                     {timeMetrics && Object.entries(timeMetrics).map(([key, val]) => (
                       <div key={key} className="space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-400 capitalize">{key.replace('_', ' ')}:</span>
-                          <span className="text-white font-bold">{val} сек</span>
+                          <span className="text-white font-bold">{val} {language === 'ru' ? 'сек' : 's'}</span>
                         </div>
                         <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
                           <div
@@ -457,29 +471,29 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                   <div>
                     <h4 className="font-semibold text-slate-200 mb-3 flex items-center gap-2">
                       <Cpu className="w-4 h-4 text-purple-400" />
-                      <span>Итоги транзакции Puppet</span>
+                      <span>{language === 'ru' ? 'Итоги транзакции Puppet' : 'Puppet Transaction Summary'}</span>
                     </h4>
                     <ul className="space-y-2 text-slate-300 font-mono text-xs">
                       <li className="flex justify-between py-1 border-b border-slate-800">
-                        <span>Каталог скомпилирован:</span>
+                        <span>{language === 'ru' ? 'Каталог скомпилирован:' : 'Catalog retrieved:'}</span>
                         <span className="text-slate-100">{timeMetrics?.config_retrieval || 1.8}s</span>
                       </li>
                       <li className="flex justify-between py-1 border-b border-slate-800">
-                        <span>Версия Puppet агента:</span>
+                        <span>{language === 'ru' ? 'Версия Puppet агента:' : 'Puppet agent version:'}</span>
                         <span className="text-slate-100">{report.puppet_version}</span>
                       </li>
                       <li className="flex justify-between py-1 border-b border-slate-800">
-                        <span>Окружение Puppet:</span>
+                        <span>{language === 'ru' ? 'Окружение Puppet:' : 'Environment:'}</span>
                         <span className="text-amber-400">{report.environment}</span>
                       </li>
                       <li className="flex justify-between py-1 border-b border-slate-800">
-                        <span>Событий failure:</span>
+                        <span>{language === 'ru' ? 'Событий failure:' : 'Failure events:'}</span>
                         <span className={report.metrics?.events?.failure ? 'text-rose-400 font-bold' : 'text-slate-400'}>
                           {report.metrics?.events?.failure || 0}
                         </span>
                       </li>
                       <li className="flex justify-between py-1">
-                        <span>Общее время прогона:</span>
+                        <span>{language === 'ru' ? 'Общее время прогона:' : 'Total run duration:'}</span>
                         <span className="text-emerald-400 font-bold">{report.run_duration}s</span>
                       </li>
                     </ul>
@@ -494,7 +508,9 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
             <div className="relative space-y-3">
               <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-slate-400 font-mono text-[11px]">
-                  Полный дамп отчета в формате JSON ({JSON.stringify(report).length} байт)
+                  {language === 'ru'
+                    ? `Полный дамп отчета в формате JSON (${JSON.stringify(report).length} байт)`
+                    : `Complete JSON report payload (${JSON.stringify(report).length} bytes)`}
                 </span>
                 <button
                   type="button"
@@ -506,7 +522,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                   }`}
                 >
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? 'Скопировано!' : 'Скопировать весь JSON'}</span>
+                  <span>{copied ? t.copied : t.copyAllJson}</span>
                 </button>
               </div>
 
@@ -524,7 +540,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition cursor-pointer"
           >
-            Закрыть
+            {t.close}
           </button>
         </div>
       </div>

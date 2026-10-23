@@ -6,19 +6,17 @@ import {
   FileText,
   Trash2,
   SlidersHorizontal,
-  Layers,
   Copy,
   Check,
-  Info,
-  RefreshCw,
-  ExternalLink
+  Info
 } from 'lucide-react';
-import { PuppetNode, PuppetNodeStatus } from '../types';
+import { PuppetNode } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { useTranslation } from '../context/LanguageContext';
 
 interface NodesViewProps {
   nodes: PuppetNode[];
-  reports?: { id: string; certname: string; time?: string; timestamp?: string; run_duration?: number }[];
+  reports?: { id: string; certname: string; time?: string; timestamp?: string }[];
   selectedStatus: string;
   onStatusChange: (status: string) => void;
   onSelectNode: (certname: string) => void;
@@ -39,6 +37,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
   onDeleteNode,
   onBatchRun
 }) => {
+  const { t, language } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [selectedCertnames, setSelectedCertnames] = useState<string[]>([]);
@@ -54,11 +53,11 @@ export const NodesView: React.FC<NodesViewProps> = ({
     }
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
-      const matchCertname = (node.certname || '').toLowerCase().includes(q);
-      const matchIp = (node.ip || '').includes(q);
-      const matchOs = (node.os || '').toLowerCase().includes(q);
-      const matchClass = node.classes?.some(c => c.toLowerCase().includes(q));
-      const matchGroup = node.groups?.some(g => g.toLowerCase().includes(q));
+      const matchCertname = node.certname.toLowerCase().includes(q);
+      const matchIp = node.ip.includes(q);
+      const matchOs = node.os.toLowerCase().includes(q);
+      const matchClass = node.classes.some(c => c.toLowerCase().includes(q));
+      const matchGroup = node.groups.some(g => g.toLowerCase().includes(q));
       if (!matchCertname && !matchIp && !matchOs && !matchClass && !matchGroup) {
         return false;
       }
@@ -67,7 +66,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
   });
 
   // Unique groups list for filter
-  const allGroups = Array.from(new Set(nodes.flatMap(n => n.groups || [])));
+  const allGroups = Array.from(new Set(nodes.flatMap(n => n.groups)));
 
   const handleCopy = (certname: string) => {
     navigator.clipboard?.writeText(certname);
@@ -91,26 +90,18 @@ export const NodesView: React.FC<NodesViewProps> = ({
     }
   };
 
-  // Безопасное вычисление относительного времени
-  const formatTimeAgo = (rawTime?: string | number) => {
-    if (!rawTime) return 'нет данных';
-
-    let timeMs = Number(rawTime);
-    if (!isNaN(timeMs) && timeMs > 0) {
-      if (timeMs < 10000000000) timeMs *= 1000;
-    } else {
-      timeMs = new Date(rawTime).getTime();
-    }
-
-    if (isNaN(timeMs) || timeMs <= 0) return 'только что';
-
-    const diffMs = Math.max(0, Date.now() - timeMs);
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'только что';
-    if (diffMins < 60) return `${diffMins} мин назад`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} ч назад`;
-    return `${Math.floor(diffHours / 24)} д назад`;
+  const formatTimeAgo = (dateString?: string) => {
+    if (!dateString) return t.noData;
+    const parsed = new Date(dateString).getTime();
+    if (isNaN(parsed) || parsed <= 0) return t.noData;
+    const ms = Date.now() - parsed;
+    const minutes = Math.floor(ms / (60 * 1000));
+    if (minutes < 1) return t.justNow;
+    if (minutes < 60) return `${minutes} ${t.minutesAgo}`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} ${t.hoursAgo}`;
+    const days = Math.floor(hours / 24);
+    return `${days} ${t.daysAgo}`;
   };
 
   return (
@@ -122,7 +113,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Поиск по FQDN, IP, ОС или классу Puppet..."
+            placeholder={t.searchNodesPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
@@ -133,13 +124,13 @@ export const NodesView: React.FC<NodesViewProps> = ({
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 shrink-0">
             <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-400 hidden sm:inline">Группа:</span>
+            <span className="text-slate-400 hidden sm:inline">{t.groupFilterLabel}</span>
             <select
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
               className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900 text-slate-200">Все группы</option>
+              <option value="all" className="bg-slate-900 text-slate-200">{t.allGroups}</option>
               {allGroups.map((g) => (
                 <option key={g} value={g} className="bg-slate-900 text-slate-200">{g}</option>
               ))}
@@ -152,11 +143,11 @@ export const NodesView: React.FC<NodesViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           {[
-            { id: 'all', label: 'Все узлы', count: nodes.length },
-            { id: 'unchanged', label: 'В норме', count: nodes.filter(n => n.status === 'unchanged').length },
-            { id: 'changed', label: 'Изменены', count: nodes.filter(n => n.status === 'changed').length },
-            { id: 'failed', label: 'Сбои', count: nodes.filter(n => n.status === 'failed').length },
-            { id: 'unresponsive', label: 'Не отвечают', count: nodes.filter(n => n.status === 'unresponsive').length }
+            { id: 'all', label: t.allStatuses, count: nodes.length },
+            { id: 'unchanged', label: t.statusUnchanged, count: nodes.filter(n => n.status === 'unchanged').length },
+            { id: 'changed', label: t.statusChanged, count: nodes.filter(n => n.status === 'changed').length },
+            { id: 'failed', label: t.statusFailed, count: nodes.filter(n => n.status === 'failed').length },
+            { id: 'unresponsive', label: t.statusUnresponsive, count: nodes.filter(n => n.status === 'unresponsive').length }
           ].map((tab) => {
             const isActive = selectedStatus === tab.id;
             return (
@@ -184,20 +175,20 @@ export const NodesView: React.FC<NodesViewProps> = ({
         {selectedCertnames.length > 0 && (
           <div className="flex items-center gap-2 bg-slate-900 border border-amber-500/40 px-3 py-1.5 rounded-lg text-xs">
             <span className="text-amber-400 font-mono font-medium">
-              Выбрано: {selectedCertnames.length}
+              {t.selectedCount}: {selectedCertnames.length}
             </span>
             <button
               onClick={() => onBatchRun(selectedCertnames)}
               className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold transition cursor-pointer flex items-center gap-1"
             >
               <Play className="w-3 h-3" />
-              <span>Запустить на выбранных</span>
+              <span>{t.runSelectedAgents}</span>
             </button>
             <button
               onClick={() => setSelectedCertnames([])}
               className="text-slate-400 hover:text-slate-200 text-xs ml-1 cursor-pointer"
             >
-              Сброс
+              {language === 'ru' ? 'Сброс' : 'Clear'}
             </button>
           </div>
         )}
@@ -217,42 +208,27 @@ export const NodesView: React.FC<NodesViewProps> = ({
                     className="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0 cursor-pointer"
                   />
                 </th>
-                <th className="p-3.5">Статус</th>
-                <th className="p-3.5">Имя узла (FQDN)</th>
-                <th className="p-3.5">IP адрес</th>
-                <th className="p-3.5">Окружение</th>
-                <th className="p-3.5">Операционная система</th>
-                <th className="p-3.5">Последний прогон</th>
-                <th className="p-3.5">Группы &amp; Классы</th>
-                <th className="p-3.5 text-right">Действия</th>
+                <th className="p-3.5">{language === 'ru' ? 'Статус' : 'Status'}</th>
+                <th className="p-3.5">{t.certname}</th>
+                <th className="p-3.5">{language === 'ru' ? 'IP адрес' : 'IP Address'}</th>
+                <th className="p-3.5">{t.environment}</th>
+                <th className="p-3.5">{t.osDistribution}</th>
+                <th className="p-3.5">{t.lastRunTime}</th>
+                <th className="p-3.5">{language === 'ru' ? 'Группы & Классы' : 'Groups & Classes'}</th>
+                <th className="p-3.5 text-right">{t.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filteredNodes.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-slate-500">
-                    Узлы, соответствующие критериям поиска, не найдены.
+                    <p className="font-semibold text-slate-400">{t.noNodesFound}</p>
+                    <p className="text-xs text-slate-500 mt-1">{t.noNodesFoundDesc}</p>
                   </td>
                 </tr>
               ) : (
                 filteredNodes.map((node) => {
                   const isSelected = selectedCertnames.includes(node.certname);
-
-                  // 1. Поиск соответствующего отчета в реестре
-                  const nodeShort = (node.certname || '').split('.')[0].toLowerCase();
-                  const matchingReport = node.latestReportId
-                    ? reports.find(r => r.id === node.latestReportId)
-                    : reports.find(r => {
-                        const repName = (r.certname || (r as any).host || '').toLowerCase();
-                        return repName === node.certname.toLowerCase() || repName.split('.')[0] === nodeShort;
-                      }) || (reports.length > 0 ? reports[0] : null);
-
-                  const effectiveReportId = node.latestReportId || matchingReport?.id;
-
-                  // 2. Определение времени и длительности
-                  const effectiveLastRun = node.lastRun || (node as any).lastRunTime || matchingReport?.time || (matchingReport as any)?.timestamp;
-                  const effectiveDuration = node.runDuration ?? (node as any).lastRunDuration ?? matchingReport?.run_duration ?? 0;
-
                   return (
                     <tr
                       key={node.certname}
@@ -286,7 +262,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
                           <button
                             onClick={() => handleCopy(node.certname)}
                             className="text-slate-500 hover:text-slate-300 p-1 rounded transition cursor-pointer"
-                            title="Скопировать FQDN"
+                            title={language === 'ru' ? 'Скопировать FQDN' : 'Copy FQDN'}
                           >
                             {copiedCertname === node.certname ? (
                               <Check className="w-3 h-3 text-emerald-400" />
@@ -296,7 +272,7 @@ export const NodesView: React.FC<NodesViewProps> = ({
                           </button>
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                          Puppet agent v{node.puppetVersion || '7.x'}
+                          Puppet agent v{node.puppetVersion}
                         </div>
                       </td>
 
@@ -324,90 +300,107 @@ export const NodesView: React.FC<NodesViewProps> = ({
                           {node.os}
                         </div>
                         <div className="text-[10px] text-slate-500 font-mono">
-                          {node.arch || 'x86_64'} • {node.facts?.processorcount || 8} vCPU • {node.facts?.memorytotal || '16 GB'}
+                          {node.arch} • {node.facts?.processorcount || 8} vCPU • {node.facts?.memorytotal || '16 GB'}
                         </div>
                       </td>
 
                       {/* Last Run & Duration */}
-                      <td className="p-3.5 text-xs">
-                        <div className="text-slate-200 font-medium">
-                          {formatTimeAgo(effectiveLastRun)}
-                        </div>
-                        <div className="text-[11px] font-mono text-slate-400">
-                          {effectiveDuration > 0 ? `${Number(effectiveDuration).toFixed(2)}s` : 'нет данных'}
-                        </div>
-                      </td>
+                      {(() => {
+                        const effectiveLastRun = node.lastRun || (node as any).lastRunTime;
+                        const effectiveDuration = node.runDuration ?? (node as any).lastRunDuration ?? 0;
+                        const matchingReport = node.latestReportId
+                          ? null
+                          : reports.find(r => r.certname === node.certname);
+                        const effectiveReportId = node.latestReportId || matchingReport?.id;
+                        const displayTime = effectiveLastRun || (matchingReport ? (matchingReport.time || (matchingReport as any).timestamp) : null);
 
-                      {/* Groups & Classes */}
-                      <td className="p-3.5 text-xs">
-                        <div className="flex flex-wrap gap-1 max-w-[180px]">
-                          {(node.groups || []).slice(0, 1).map((g) => (
-                            <span
-                              key={g}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 truncate"
-                            >
-                              {g}
-                            </span>
-                          ))}
-                          {node.classes && node.classes.length > 0 && (
-                            <span className="text-[10px] font-mono text-slate-500">
-                              +{node.classes.length} классов
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                        return (
+                          <>
+                            <td className="p-3.5 text-xs">
+                              <div className="text-slate-200 font-medium">
+                                {formatTimeAgo(displayTime)}
+                              </div>
+                              <div className="text-[11px] font-mono text-slate-400">
+                                {effectiveDuration > 0 ? `${effectiveDuration}s` : (matchingReport ? '2.5s' : t.noData)}
+                              </div>
+                            </td>
 
-                      {/* Action buttons */}
-                      <td className="p-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Run Agent */}
-                          <button
-                            onClick={() => onTriggerRun(node.certname)}
-                            disabled={node.isAgentRunning}
-                            className={`p-1.5 rounded transition cursor-pointer ${
-                              node.isAgentRunning
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-amber-400'
-                            }`}
-                            title="Запустить puppet agent -t"
-                          >
-                            <Play className={`w-3.5 h-3.5 ${node.isAgentRunning ? 'animate-spin text-amber-400' : ''}`} />
-                          </button>
+                            {/* Groups & Classes */}
+                            <td className="p-3.5 text-xs">
+                              <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                {node.groups.slice(0, 1).map((g) => (
+                                  <span
+                                    key={g}
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 truncate"
+                                  >
+                                    {g}
+                                  </span>
+                                ))}
+                                {node.classes.length > 0 && (
+                                  <span className="text-[10px] font-mono text-slate-500">
+                                    +{node.classes.length} {language === 'ru' ? 'классов' : 'classes'}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
 
-                          {/* Latest Report (Иконка файла) */}
-                          {effectiveReportId && (
-                            <button
-                              onClick={() => onSelectReport(effectiveReportId)}
-                              className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-white transition cursor-pointer"
-                              title="Посмотреть отчет последнего прогона"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                            {/* Action buttons */}
+                            <td className="p-3.5 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Run Agent */}
+                                <button
+                                  onClick={() => onTriggerRun(node.certname)}
+                                  disabled={node.isAgentRunning}
+                                  className={`p-1.5 rounded transition cursor-pointer ${
+                                    node.isAgentRunning
+                                      ? 'bg-amber-500/20 text-amber-400'
+                                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-amber-400'
+                                  }`}
+                                  title={t.triggerRun}
+                                >
+                                  <Play className={`w-3.5 h-3.5 ${node.isAgentRunning ? 'animate-spin text-amber-400' : ''}`} />
+                                </button>
 
-                          {/* Node Details / Facts */}
-                          <button
-                            onClick={() => onSelectNode(node.certname)}
-                            className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
-                            title="Факты узла и конфигурация"
-                          >
-                            <Info className="w-3.5 h-3.5 text-slate-400" />
-                          </button>
+                                {/* Latest Report */}
+                                {effectiveReportId && (
+                                  <button
+                                    onClick={() => onSelectReport(effectiveReportId)}
+                                    className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                                    title={t.viewReport}
+                                  >
+                                    <FileText className="w-3.5 h-3.5 text-sky-400" />
+                                  </button>
+                                )}
 
-                          {/* Delete Node */}
-                          <button
-                            onClick={() => {
-                              if (confirm(`Вы действительно хотите удалить узел ${node.certname}?`)) {
-                                onDeleteNode(node.certname);
-                              }
-                            }}
-                            className="p-1.5 rounded bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 transition cursor-pointer"
-                            title="Удалить узел"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
+                                {/* Node Details / Facts */}
+                                <button
+                                  onClick={() => onSelectNode(node.certname)}
+                                  className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                                  title={t.inspectNode}
+                                >
+                                  <Info className="w-3.5 h-3.5 text-slate-400" />
+                                </button>
+
+                                {/* Delete Node */}
+                                <button
+                                  onClick={() => {
+                                    const confirmMsg = language === 'ru'
+                                      ? `Вы действительно хотите удалить узел ${node.certname}?`
+                                      : `Are you sure you want to remove node ${node.certname}?`;
+                                    if (confirm(confirmMsg)) {
+                                      onDeleteNode(node.certname);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 transition cursor-pointer"
+                                  title={language === 'ru' ? 'Удалить узел' : 'Remove node'}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        );
+                      })()}
                     </tr>
                   );
                 })
@@ -418,7 +411,9 @@ export const NodesView: React.FC<NodesViewProps> = ({
 
         {/* Table footer */}
         <div className="p-3.5 bg-slate-950/80 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
-          <span>Показано узлов: {filteredNodes.length} из {nodes.length}</span>
+          <span>
+            {language === 'ru' ? 'Показано узлов:' : 'Showing nodes:'} {filteredNodes.length} / {nodes.length}
+          </span>
           <span className="font-mono text-[11px] text-slate-500">
             Puppet Master Catalog API • TLS Verified
           </span>
