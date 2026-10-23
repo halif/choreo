@@ -1,393 +1,351 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  Activity,
-  RefreshCw,
-  Server,
-  Cpu,
-  Clock,
-  Layers,
-  Zap,
+  X,
+  Sparkles,
+  Terminal,
+  Copy,
+  Check,
   CheckCircle2,
   AlertTriangle,
-  HardDrive,
-  Trash2,
-  Maximize2
+  Server,
+  Zap
 } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend
-} from 'recharts';
 import { api } from '../services/api';
+import { useTranslation } from '../context/LanguageContext';
 
-export const ServerHealthView: React.FC = () => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState<number>(10);
-  const [lastRefreshed, setLastRefreshed] = useState<string>('');
+interface WebhookIntegrationModalProps {
+  onClose: () => void;
+  onReportSimulated: () => void;
+}
 
-  const fetchHealth = async () => {
+export const WebhookIntegrationModal: React.FC<WebhookIntegrationModalProps> = ({
+  onClose,
+  onReportSimulated
+}) => {
+  const { t, language } = useTranslation();
+  const [copiedConf, setCopiedConf] = useState(false);
+  const [copiedCurl, setCopiedCurl] = useState(false);
+  const [copiedFacts, setCopiedFacts] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<string | null>(null);
+
+  const puppetConfSnippet = `# /etc/puppetlabs/puppet/puppet.conf (Puppet Master / Puppet Server)
+[master]
+reports = puppet_dashboard,store
+reporturl = ${window.location.origin}/api/reports
+
+# HTTP report processor format:
+report_format = 12
+`;
+
+  const curlSnippet = `curl -X POST ${window.location.origin}/api/reports \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "certname": "db-analytics.prod.acme.net",
+    "environment": "production",
+    "status": "changed",
+    "configuration_version": "1726299000",
+    "puppet_version": "8.4.0",
+    "run_duration": 28.5,
+    "metrics": {
+      "resources": { "total": 140, "unchanged": 138, "changed": 2, "failed": 0, "out_of_sync": 2 }
+    },
+    "resource_events": [
+      {
+        "resource_type": "File",
+        "title": "/etc/postgresql/16/main/postgresql.conf",
+        "property": "content",
+        "message": "content changed (max_connections updated)",
+        "status": "success"
+      }
+    ],
+    "logs": [
+      { "level": "notice", "source": "Puppet", "message": "Catalog applied successfully with 2 changes" }
+    ]
+  }'`;
+
+  const factsSnippet = `# Send real Facter facts from any node to Choreo:
+facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
+  -H "Content-Type: application/json" \\
+  -d @-`;
+
+  const handleCopy = (text: string, type: 'conf' | 'curl' | 'facts') => {
+    navigator.clipboard?.writeText(text);
+    if (type === 'conf') {
+      setCopiedConf(true);
+      setTimeout(() => setCopiedConf(false), 2000);
+    } else if (type === 'curl') {
+      setCopiedCurl(true);
+      setTimeout(() => setCopiedCurl(false), 2000);
+    } else {
+      setCopiedFacts(true);
+      setTimeout(() => setCopiedFacts(false), 2000);
+    }
+  };
+
+  const handleSimulateScenario = async (type: 'changed' | 'failed' | 'clean') => {
+    setIsSimulating(true);
+    setSimulationResult(null);
+
+    const certname = type === 'failed'
+      ? 'redis-cache-01.prod.acme.net'
+      : type === 'changed'
+      ? 'auth-service.prod.acme.net'
+      : 'log-collector-01.prod.acme.net';
+
+    const payload = {
+      certname,
+      environment: 'production',
+      status: type === 'clean' ? 'unchanged' : type,
+      configuration_version: `${Math.floor(Date.now() / 1000)} (git: rev-${Math.random().toString(36).substring(2, 7)})`,
+      puppet_version: '8.4.0',
+      run_duration: Number((12 + Math.random() * 10).toFixed(1)),
+      metrics: {
+        resources: {
+          total: 125,
+          unchanged: type === 'clean' ? 125 : type === 'changed' ? 123 : 124,
+          changed: type === 'changed' ? 2 : 0,
+          failed: type === 'failed' ? 1 : 0,
+          failed_to_restart: 0,
+          out_of_sync: type === 'changed' ? 2 : type === 'failed' ? 1 : 0,
+          skipped: 0,
+          scheduled: 0
+        },
+        time: {
+          config_retrieval: 1.4,
+          exec: 2.1,
+          package: 3.5,
+          service: 2.8,
+          file: 4.2,
+          total: 14.0
+        },
+        events: {
+          total: type === 'clean' ? 0 : 2,
+          failure: type === 'failed' ? 1 : 0,
+          success: type === 'changed' ? 2 : 0,
+          noop: 0
+        }
+      },
+      resource_events: type === 'failed' ? [
+        {
+          resource_type: 'Service',
+          title: 'redis-server',
+          property: 'ensure',
+          previous_value: 'stopped',
+          desired_value: 'running',
+          message: 'Failed to start redis: can not bind to 0.0.0.0:6379, address in use',
+          status: 'failure',
+          file: '/etc/puppetlabs/code/environments/production/modules/redis/manifests/service.pp',
+          line: 34
+        }
+      ] : type === 'changed' ? [
+        {
+          resource_type: 'File',
+          title: '/etc/security/limits.conf',
+          property: 'content',
+          previous_value: '1024',
+          desired_value: '65535',
+          message: 'updated max open files ulimit for app user',
+          status: 'success'
+        },
+        {
+          resource_type: 'Service',
+          title: 'auth-app',
+          property: 'ensure',
+          previous_value: 'running',
+          desired_value: 'running',
+          message: 'Triggered reload from File[/etc/security/limits.conf]',
+          status: 'success'
+        }
+      ] : [],
+      logs: [
+        {
+          level: 'info',
+          source: 'Puppet',
+          message: `Applying catalog for ${certname}`,
+          time: new Date().toISOString()
+        },
+        {
+          level: type === 'failed' ? 'err' : 'notice',
+          source: 'Puppet',
+          message: type === 'failed'
+            ? 'Execution failed: Service[redis-server] could not be started'
+            : type === 'changed'
+            ? 'Catalog applied with 2 state changes'
+            : 'Catalog applied: all 125 resources in sync',
+          time: new Date().toISOString()
+        }
+      ]
+    };
+
     try {
-      const res = await api.getServerHealth();
-      setData(res);
-      setLastRefreshed(new Date().toLocaleTimeString('ru-RU'));
-    } catch (err) {
-      console.error('Failed to load server health:', err);
+      await api.ingestReport(payload);
+      setSimulationResult(
+        language === 'ru'
+          ? `Отчет успешно принят для узла ${certname}! Проверьте раздел "Отчеты" и ленту событий.`
+          : `Report successfully ingested for ${certname}! Check Reports and live event stream.`
+      );
+      onReportSimulated();
+    } catch (err: any) {
+      setSimulationResult(
+        language === 'ru'
+          ? `Ошибка симуляции: ${err.message}`
+          : `Simulation error: ${err.message}`
+      );
     } finally {
-      setLoading(false);
+      setIsSimulating(false);
     }
   };
-
-  useEffect(() => {
-    fetchHealth();
-    if (refreshInterval > 0) {
-      const timer = setInterval(fetchHealth, refreshInterval * 1000);
-      return () => clearInterval(timer);
-    }
-  }, [refreshInterval]);
-
-  const handleClearHistory = () => {
-    if (data && data.history) {
-      setData({
-        ...data,
-        history: data.history.slice(-1)
-      });
-    }
-  };
-
-  if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
-        <RefreshCw className="w-6 h-6 animate-spin text-amber-500 mr-3" />
-        <span>Опрос телеметрии Puppet Master & JVM...</span>
-      </div>
-    );
-  }
-
-  const jvm = data?.jvm || {
-    heapUsedMB: 1634,
-    heapMaxMB: 2048,
-    heapPercent: 79.8,
-    nonHeapMB: 395
-  };
-
-  const timings = data?.timings || {
-    catalogMeanMs: 1219,
-    reportMeanMs: 37,
-    totalMeanMs: 203
-  };
-
-  const history = data?.history || [];
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Controls (Как в OpenVox) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-amber-400">
-            <Server className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold text-white tracking-tight">
-                Puppet Master & Server Health
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-white">
+                {t.webhookModalTitle}
               </h2>
-              <span className="text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 font-mono">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                RUNNING
-              </span>
+              <p className="text-xs text-slate-400">
+                {t.webhookModalSubtitle}
+              </p>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Телеметрия JVM, сборщика мусора и скорость обработки маршрутов Puppet Server
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-5 overflow-y-auto space-y-6 text-xs flex-1">
+          {/* Real-time Simulator Section */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-slate-950 to-slate-950 border border-amber-500/30">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-4 h-4 text-amber-400" />
+              <h3 className="font-bold text-white text-sm">
+                {language === 'ru' ? 'Интерактивный симулятор отчетов Puppet в реальном времени' : 'Live Puppet Report & Event Simulator'}
+              </h3>
+            </div>
+            <p className="text-slate-300 mb-4">
+              {language === 'ru'
+                ? 'Нажмите одну из кнопок ниже, чтобы отправить сгенерированный Puppet-отчет в API. Дэшборд мгновенно обновит графики и ленту событий через SSE.'
+                : 'Click any scenario below to ingest a simulated Puppet transaction into the API. The dashboard updates graphs, nodes, and live events instantly via SSE.'}
             </p>
+
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                onClick={() => handleSimulateScenario('clean')}
+                disabled={isSimulating}
+                className="px-3.5 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-semibold transition cursor-pointer flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>{language === 'ru' ? 'Отправить успешный отчет (In Sync)' : 'Simulate Success (In Sync)'}</span>
+              </button>
+
+              <button
+                onClick={() => handleSimulateScenario('changed')}
+                disabled={isSimulating}
+                className="px-3.5 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-semibold transition cursor-pointer flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-sky-400" />
+                <span>{language === 'ru' ? 'Отправить отчет с изменениями (Changed)' : 'Simulate Corrective Change'}</span>
+              </button>
+
+              <button
+                onClick={() => handleSimulateScenario('failed')}
+                disabled={isSimulating}
+                className="px-3.5 py-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold transition cursor-pointer flex items-center gap-2"
+              >
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span>{language === 'ru' ? 'Отправить сбойный отчет (Failed Service)' : 'Simulate Failure (Catalog Error)'}</span>
+              </button>
+            </div>
+
+            {simulationResult && (
+              <div className="mt-3 p-2.5 rounded-lg bg-slate-900 border border-amber-500/40 text-amber-300 font-mono text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{simulationResult}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Integration Option 1: puppet.conf */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-slate-200 flex items-center gap-2">
+                <Server className="w-4 h-4 text-amber-400" />
+                <span>1. {language === 'ru' ? 'Настройка Puppet Master (puppet.conf)' : 'Puppet Master Configuration (puppet.conf)'}</span>
+              </h4>
+              <button
+                onClick={() => handleCopy(puppetConfSnippet, 'conf')}
+                className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer font-mono text-[11px]"
+              >
+                {copiedConf ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedConf ? t.copied : t.copyConfig}</span>
+              </button>
+            </div>
+            <pre className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 overflow-x-auto">
+              {puppetConfSnippet}
+            </pre>
+          </div>
+
+          {/* Integration Option 2: Curl HTTP POST */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-slate-200 flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-sky-400" />
+                <span>2. {language === 'ru' ? 'Прямая отправка отчета через cURL (HTTP POST /api/reports)' : 'Direct HTTP POST report delivery via cURL'}</span>
+              </h4>
+              <button
+                onClick={() => handleCopy(curlSnippet, 'curl')}
+                className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer font-mono text-[11px]"
+              >
+                {copiedCurl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedCurl ? t.copied : t.copyConfig}</span>
+              </button>
+            </div>
+            <pre className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 overflow-x-auto">
+              {curlSnippet}
+            </pre>
+          </div>
+
+          {/* Integration Option 3: Facter JSON Push */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-slate-200 flex items-center gap-2">
+                <Server className="w-4 h-4 text-emerald-400" />
+                <span>3. {language === 'ru' ? 'Отправка системных фактов Facter (HTTP POST /api/facts)' : 'Node Facter facts push (HTTP POST /api/facts)'}</span>
+              </h4>
+              <button
+                onClick={() => handleCopy(factsSnippet, 'facts')}
+                className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer font-mono text-[11px]"
+              >
+                {copiedFacts ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedFacts ? t.copied : t.copyConfig}</span>
+              </button>
+            </div>
+            <pre className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 overflow-x-auto">
+              {factsSnippet}
+            </pre>
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2 text-xs">
-          <select
-            value={refreshInterval}
-            onChange={(e) => setRefreshInterval(Number(e.target.value))}
-            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
-          >
-            <option value={5}>5s</option>
-            <option value={10}>10s</option>
-            <option value={30}>30s</option>
-            <option value={60}>60s</option>
-            <option value={0}>Пауза</option>
-          </select>
-
+        {/* Footer */}
+        <div className="p-4 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+          <span>Puppet REST / Webhook Protocol Specification</span>
           <button
-            onClick={fetchHealth}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer font-medium"
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition cursor-pointer"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Обновить</span>
+            {t.close}
           </button>
-
-          <button
-            onClick={handleClearHistory}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 transition cursor-pointer"
-            title="Очистить накопленную историю графиков"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Очистить историю</span>
-          </button>
-
-          <span className="text-[11px] font-mono text-slate-500 hidden md:inline ml-2">
-            Обновлено: {lastRefreshed || data?.updatedAt}
-          </span>
-        </div>
-      </div>
-
-      {/* 7 KPI Cards Strip (В точности как в OpenVox) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        {/* Status */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-slate-400 text-[10px] uppercase font-semibold">Status</span>
-          <div className="mt-2 text-base font-black font-mono text-emerald-400 lowercase">
-            {data?.status || 'running'}
-          </div>
-        </div>
-
-        {/* Catalog mean (ms) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-slate-400 text-[10px] uppercase font-semibold">Catalog mean (ms)</span>
-          <div className="mt-2 text-xl font-black font-mono text-amber-500">
-            {timings.catalogMeanMs}
-          </div>
-        </div>
-
-        {/* Report mean (ms) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-slate-400 text-[10px] uppercase font-semibold">Report mean (ms)</span>
-          <div className="mt-2 text-xl font-black font-mono text-emerald-400">
-            {timings.reportMeanMs}
-          </div>
-        </div>
-
-        {/* Total mean (ms) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-slate-400 text-[10px] uppercase font-semibold">Total mean (ms)</span>
-          <div className="mt-2 text-xl font-black font-mono text-purple-400">
-            {timings.totalMeanMs}
-          </div>
-        </div>
-
-        {/* Heap % */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-slate-400 text-[10px] uppercase font-semibold">Heap %</span>
-          <div className="mt-2 text-xl font-black font-mono text-sky-400">
-            {jvm.heapPercent}%
-          </div>
-        </div>
-
-        {/* Heap Used */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-slate-400 text-[10px] uppercase font-semibold">Heap Used</span>
-          <div className="mt-2 text-sm font-black font-mono text-white">
-            {jvm.heapUsedMB} / {jvm.heapMaxMB} MB
-          </div>
-        </div>
-
-        {/* CPU % */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-slate-400 text-[10px] uppercase font-semibold">CPU %</span>
-          <div className="mt-2 text-xl font-black font-mono text-slate-200">
-            {data?.cpuPercent || '0.2'}%
-          </div>
-        </div>
-      </div>
-
-      {/* 4 Interactive Recharts Graphs (2x2 Grid) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Graph 1: JVM Heap Usage (Классическая пила сборщика мусора GC) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
-                <span>JVM Heap Usage</span>
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Занятая куча JVM (динамика циклов Garbage Collection)
-              </p>
-            </div>
-            <span className="text-[11px] font-mono px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded">
-              Limit: {jvm.heapMaxMB} MB
-            </span>
-          </div>
-
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="time" stroke="#64748b" fontSize={10} />
-                <YAxis stroke="#64748b" fontSize={10} unit=" MB" domain={[0, 2048]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    borderRadius: '0.75rem',
-                    fontSize: '12px'
-                  }}
-                  formatter={(val: any) => [`${val} MB`, 'Used Heap']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="heapUsedMB"
-                  name="Used"
-                  stroke="#38bdf8"
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Graph 2: JVM Non-Heap (Metaspace) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
-                <span>JVM Non-Heap (Metaspace)</span>
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Память загруженных классов, методов и метаданных JVM
-              </p>
-            </div>
-            <span className="text-[11px] font-mono px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded">
-              ~{jvm.nonHeapMB} MB
-            </span>
-          </div>
-
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="time" stroke="#64748b" fontSize={10} />
-                <YAxis stroke="#64748b" fontSize={10} unit=" MB" domain={[0, 600]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    borderRadius: '0.75rem',
-                    fontSize: '12px'
-                  }}
-                  formatter={(val: any) => [`${val} MB`, 'Metaspace']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="nonHeapMB"
-                  name="Metaspace"
-                  stroke="#c084fc"
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Graph 3: Catalog Route Mean (ms) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span>Catalog Route Mean (ms)</span>
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Время ответа эндпоинта компиляции каталогов `catalog/:certname`
-              </p>
-            </div>
-            <span className="text-[11px] font-mono px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded">
-              Avg: {timings.catalogMeanMs} ms
-            </span>
-          </div>
-
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="time" stroke="#64748b" fontSize={10} />
-                <YAxis stroke="#64748b" fontSize={10} unit=" ms" domain={[0, 3200]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    borderRadius: '0.75rem',
-                    fontSize: '12px'
-                  }}
-                  formatter={(val: any) => [`${val} ms`, 'Время компиляции']}
-                />
-                <Line
-                  type="stepAfter"
-                  dataKey="catalogMeanMs"
-                  name="Catalog Mean"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Graph 4: Report Submission Mean (ms) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <span>Report Submission Mean (ms)</span>
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Время приёма и валидации отчетов агентов через Webhook
-              </p>
-            </div>
-            <span className="text-[11px] font-mono px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded">
-              Avg: {timings.reportMeanMs} ms
-            </span>
-          </div>
-
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="time" stroke="#64748b" fontSize={10} />
-                <YAxis stroke="#64748b" fontSize={10} unit=" ms" domain={[0, 60]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    borderRadius: '0.75rem',
-                    fontSize: '12px'
-                  }}
-                  formatter={(val: any) => [`${val} ms`, 'Время приема']}
-                />
-                <Line
-                  type="stepAfter"
-                  dataKey="reportMeanMs"
-                  name="Report Mean"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
         </div>
       </div>
     </div>

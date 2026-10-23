@@ -13,40 +13,40 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md', s
     switch (s) {
       case 'unchanged':
         return {
-          label: 'Без изменений (В норме)',
-          shortLabel: 'В норме',
+          label: 'unchanged (normal)',
+          shortLabel: 'normal',
           icon: CheckCircle2,
           bgColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
           dotColor: 'bg-emerald-400'
         };
       case 'changed':
         return {
-          label: 'Изменен (Применено)',
-          shortLabel: 'Изменен',
+          label: 'changed',
+          shortLabel: 'changed',
           icon: RefreshCw,
           bgColor: 'bg-sky-500/10 text-sky-400 border-sky-500/30',
           dotColor: 'bg-sky-400'
         };
       case 'failed':
         return {
-          label: 'Сбой (Ошибка каталога)',
-          shortLabel: 'Сбой',
+          label: 'failed',
+          shortLabel: 'fail',
           icon: XCircle,
           bgColor: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
           dotColor: 'bg-rose-400'
         };
       case 'unresponsive':
         return {
-          label: 'Не отвечает (Offline)',
-          shortLabel: 'Не отвечает',
+          label: 'Offline',
+          shortLabel: 'Off',
           icon: Clock,
           bgColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
           dotColor: 'bg-amber-400'
         };
       case 'pending':
         return {
-          label: 'Ожидает (Pending)',
-          shortLabel: 'Ожидает',
+          label: 'Pending',
+          shortLabel: 'pending',
           icon: AlertTriangle,
           bgColor: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
           dotColor: 'bg-purple-400'

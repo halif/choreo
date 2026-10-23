@@ -8,20 +8,16 @@ import {
   Database,
   Layers,
   Search,
-  Check,
   Plus,
   Trash2,
   Clock,
-  Cpu,
-  HardDrive,
-  Copy,
-  ExternalLink,
   RefreshCw,
   Info
 } from 'lucide-react';
 import { PuppetNode, PuppetReport } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { api } from '../services/api';
+import { useTranslation } from '../context/LanguageContext';
 
 interface NodeDetailModalProps {
   node: PuppetNode | null;
@@ -40,6 +36,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
   onSelectReport,
   onUpdateNode
 }) => {
+  const { t, language } = useTranslation();
   const [activeTab, setActiveTab] = useState<'facts' | 'classes' | 'history' | 'terminal'>('facts');
   const [factsSearch, setFactsSearch] = useState('');
   const [newClassInput, setNewClassInput] = useState('');
@@ -51,7 +48,6 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
 
   if (!node) return null;
 
-  // Синхронизация фактов Facter с сервером
   const handleSyncFacts = async () => {
     setIsSyncingFacts(true);
     setFactsSyncNotice(null);
@@ -59,10 +55,19 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
       const res = await api.syncNodeFacts(node.certname);
       if (res && res.facts) {
         onUpdateNode(node.certname, { facts: res.facts });
-        setFactsSyncNotice(`Синхронизировано ${res.count || Object.keys(res.facts).length} фактов Facter`);
+        const count = res.count || Object.keys(res.facts).length;
+        setFactsSyncNotice(
+          language === 'ru'
+            ? `Синхронизировано ${count} фактов Facter`
+            : `Synchronized ${count} Facter facts`
+        );
       }
     } catch (e: any) {
-      setFactsSyncNotice(`Ошибка синхронизации: ${e.message}`);
+      setFactsSyncNotice(
+        language === 'ru'
+          ? `Ошибка синхронизации: ${e.message}`
+          : `Sync error: ${e.message}`
+      );
     } finally {
       setIsSyncingFacts(false);
       setTimeout(() => setFactsSyncNotice(null), 4000);
@@ -71,7 +76,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
 
   const nodeReports = reports.filter(r => r.certname === node.certname);
 
-  // Фильтрация фактов Facter
+  // Facts filtering
   const factsEntries = Object.entries(node.facts || {}).filter(([k, v]) => {
     if (factsSearch.trim() === '') return true;
     const q = factsSearch.toLowerCase().trim();
@@ -156,11 +161,11 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
                 <span>IP: {node.ip}</span>
                 <span>•</span>
-                <span>ОС: {node.os}</span>
+                <span>{language === 'ru' ? 'ОС:' : 'OS:'} {node.os}</span>
                 <span>•</span>
                 <span>Agent: v{node.puppetVersion}</span>
                 <span>•</span>
-                <span>Посл. прогон: {new Date(node.lastRun).toLocaleTimeString()}</span>
+                <span>{language === 'ru' ? 'Посл. прогон:' : 'Last run:'} {new Date(node.lastRun).toLocaleTimeString()}</span>
               </div>
             </div>
           </div>
@@ -197,7 +202,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            <span>Факты узла (Facter: {factsEntries.length})</span>
+            <span>{t.tabFacts} ({factsEntries.length})</span>
           </button>
 
           <button
@@ -209,7 +214,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Классы &amp; Группы ({node.classes.length})</span>
+            <span>{language === 'ru' ? 'Классы & Группы' : 'Classes & Groups'} ({node.classes.length})</span>
           </button>
 
           <button
@@ -221,7 +226,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>История отчетов ({nodeReports.length})</span>
+            <span>{t.tabHistory} ({nodeReports.length})</span>
           </button>
 
           <button
@@ -233,7 +238,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>Консоль агента (Live Run)</span>
+            <span>{t.tabTerminal}</span>
           </button>
         </div>
 
@@ -247,20 +252,20 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Фильтр фактов Facter (например: memory, processor, kernel, ip)..."
+                    placeholder={t.searchFactsPlaceholder}
                     value={factsSearch}
                     onChange={(e) => setFactsSearch(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
                   />
                 </div>
                 <button
                   onClick={handleSyncFacts}
                   disabled={isSyncingFacts}
                   className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-slate-700 font-medium text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shrink-0 shadow-sm"
-                  title="Опросить Facter на узле или сгенерировать системные факты"
+                  title={t.syncFacts}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFacts ? 'animate-spin text-amber-400' : ''}`} />
-                  <span>{isSyncingFacts ? 'Опрос Facter...' : 'Синхронизировать факты'}</span>
+                  <span>{isSyncingFacts ? t.factsSyncing : t.syncFacts}</span>
                 </button>
               </div>
 
@@ -278,12 +283,18 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                   </div>
                   <div>
                     <h5 className="font-semibold text-slate-200 text-sm">
-                      {factsSearch.trim() ? 'Ничего не найдено по фильтру' : 'Факты Facter ещё не загружены'}
+                      {factsSearch.trim()
+                        ? (language === 'ru' ? 'Ничего не найдено по фильтру' : 'No facts match the query')
+                        : (language === 'ru' ? 'Факты Facter ещё не загружены' : 'No Facter facts loaded yet')}
                     </h5>
                     <p className="text-slate-400 text-xs max-w-md mx-auto mt-1">
                       {factsSearch.trim()
-                        ? `По запросу "${factsSearch}" фактов не обнаружено. Попробуйте сбросить поисковый запрос.`
-                        : 'Puppet-отчет содержит только статусы применения каталога. Факты Facter (память, процессор, ОС) передаются отдельным запросом.'}
+                        ? (language === 'ru'
+                            ? `По запросу "${factsSearch}" фактов не обнаружено. Попробуйте сбросить поисковый запрос.`
+                            : `No facts found matching "${factsSearch}". Try clearing your search query.`)
+                        : (language === 'ru'
+                            ? 'Puppet-отчет содержит только статусы применения каталога. Факты Facter (память, процессор, ОС) передаются отдельно.'
+                            : 'Puppet reports include catalog run statuses. Facter hardware and OS telemetry is synchronized separately.')}
                     </p>
                   </div>
                   {!factsSearch.trim() && (
@@ -293,7 +304,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition cursor-pointer shadow mt-2"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFacts ? 'animate-spin' : ''}`} />
-                      <span>Запросить факты у узла (Run Facter)</span>
+                      <span>{language === 'ru' ? 'Запросить факты у узла (Run Facter)' : 'Request node facts (Run Facter)'}</span>
                     </button>
                   )}
                 </div>
@@ -302,8 +313,8 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                   <table className="w-full text-left font-mono text-xs">
                     <thead className="bg-slate-900 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
                       <tr>
-                        <th className="p-3 w-1/3">Имя факта (Fact Name)</th>
-                        <th className="p-3">Значение (Value)</th>
+                        <th className="p-3 w-1/3">{language === 'ru' ? 'Имя факта (Fact Name)' : 'Fact Key'}</th>
+                        <th className="p-3">{language === 'ru' ? 'Значение (Value)' : 'Value'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
@@ -329,11 +340,13 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
               <div>
                 <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-amber-400" />
-                  <span>Привязанные группы узлов</span>
+                  <span>{language === 'ru' ? 'Привязанные группы узлов' : 'Assigned Node Groups'}</span>
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {node.groups.length === 0 ? (
-                    <span className="text-slate-500 text-xs">Узел не привязан к группам.</span>
+                    <span className="text-slate-500 text-xs">
+                      {language === 'ru' ? 'Узел не привязан к группам.' : 'Node is not assigned to any group.'}
+                    </span>
                   ) : (
                     node.groups.map((g) => (
                       <span
@@ -352,13 +365,15 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-white flex items-center gap-2">
                     <Database className="w-4 h-4 text-sky-400" />
-                    <span>Назначенные Puppet классы</span>
+                    <span>{language === 'ru' ? 'Назначенные Puppet классы' : 'Assigned Puppet Classes'}</span>
                   </h4>
                   <button
                     onClick={() => setIsEditingClasses(!isEditingClasses)}
                     className="text-xs text-amber-400 hover:underline cursor-pointer"
                   >
-                    {isEditingClasses ? 'Готово' : 'Редактировать'}
+                    {isEditingClasses
+                      ? (language === 'ru' ? 'Готово' : 'Done')
+                      : (language === 'ru' ? 'Редактировать' : 'Edit')}
                   </button>
                 </div>
 
@@ -366,7 +381,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                   <div className="flex items-center gap-2 mb-3">
                     <input
                       type="text"
-                      placeholder="Имя класса (например: profile::memcached)"
+                      placeholder={t.addClassPlaceholder}
                       value={newClassInput}
                       onChange={(e) => setNewClassInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddClass()}
@@ -377,7 +392,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                       className="px-3 py-1.5 rounded bg-amber-500 text-slate-950 font-semibold text-xs cursor-pointer flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Добавить</span>
+                      <span>{t.addClassBtn}</span>
                     </button>
                   </div>
                 )}
@@ -409,7 +424,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
             <div className="space-y-3">
               {nodeReports.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800">
-                  Отчетов для данного узла пока не сохранено.
+                  {language === 'ru' ? 'Отчетов для данного узла пока не сохранено.' : 'No reports saved for this node yet.'}
                 </div>
               ) : (
                 nodeReports.map((r) => (
@@ -422,17 +437,17 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                       <StatusBadge status={r.status} size="sm" />
                       <div>
                         <div className="font-mono text-xs font-semibold text-white">
-                          Конфигурация {r.configuration_version}
+                          {language === 'ru' ? 'Конфигурация' : 'Config'} {r.configuration_version}
                         </div>
                         <div className="text-[11px] text-slate-400">
-                          {new Date(r.time).toLocaleString()} • {r.run_duration}s прогон
+                          {new Date(r.time).toLocaleString()} • {r.run_duration}s {language === 'ru' ? 'прогон' : 'run'}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400">
-                        {r.metrics?.resources?.changed || 0} изм / {r.metrics?.resources?.failed || 0} сбоев
+                        {r.metrics?.resources?.changed || 0} {language === 'ru' ? 'изм' : 'changed'} / {r.metrics?.resources?.failed || 0} {language === 'ru' ? 'сбоев' : 'failed'}
                       </span>
                       <FileText className="w-4 h-4 text-amber-400" />
                     </div>
@@ -446,28 +461,30 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
           {activeTab === 'terminal' && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-950 rounded-lg border border-slate-800">
-                <span className="text-slate-400">Симуляция прогона с разными исходами:</span>
+                <span className="text-slate-400">
+                  {language === 'ru' ? 'Симуляция прогона с разными исходами:' : 'Simulate agent run with outcomes:'}
+                </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleRunAgentInteractive('unchanged')}
                     disabled={isRunningTerminal}
                     className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-medium cursor-pointer"
                   >
-                    В норме (Success)
+                    {t.statusUnchanged} (Success)
                   </button>
                   <button
                     onClick={() => handleRunAgentInteractive('changed')}
                     disabled={isRunningTerminal}
                     className="px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-medium cursor-pointer"
                   >
-                    С изменениями (Change)
+                    {t.statusChanged} (Change)
                   </button>
                   <button
                     onClick={() => handleRunAgentInteractive('failed')}
                     disabled={isRunningTerminal}
                     className="px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-medium cursor-pointer"
                   >
-                    Сбой (Fail)
+                    {t.statusFailed} (Fail)
                   </button>
                 </div>
               </div>
@@ -475,7 +492,9 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 font-mono text-xs max-h-[45vh] overflow-y-auto space-y-1 text-slate-200">
                 {terminalLogs.length === 0 ? (
                   <div className="text-slate-500 py-6 text-center">
-                    Нажмите &quot;puppet agent -t&quot; вверху или выберите сценарий выше для запуска агента.
+                    {language === 'ru'
+                      ? 'Нажмите "puppet agent -t" вверху или выберите сценарий выше для запуска агента.'
+                      : 'Click "puppet agent -t" above or choose a scenario to trigger live execution.'}
                   </div>
                 ) : (
                   terminalLogs.map((line, i) => (
@@ -498,7 +517,9 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                 {isRunningTerminal && (
                   <div className="flex items-center gap-2 text-amber-400 pt-2">
                     <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                    <span>Выполняется транзакция каталога Puppet...</span>
+                    <span>
+                      {language === 'ru' ? 'Выполняется транзакция каталога Puppet...' : 'Executing Puppet catalog transaction...'}
+                    </span>
                   </div>
                 )}
               </div>
@@ -513,7 +534,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition cursor-pointer"
           >
-            Закрыть
+            {t.close}
           </button>
         </div>
       </div>

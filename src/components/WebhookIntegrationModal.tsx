@@ -181,10 +181,10 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
 
     try {
       await api.ingestReport(payload);
-      setSimulationResult(`Отчет успешно принят для узла ${certname}! Проверьте раздел "Отчеты" и ленту событий.`);
+      setSimulationResult(`Report successfully ingested for ${certname}! Check Reports and live event stream.`);
       onReportSimulated();
     } catch (err: any) {
-      setSimulationResult(`Ошибка симуляции: ${err.message}`);
+      setSimulationResult(`Simulation error: ${err.message}`);
     } finally {
       setIsSimulating(false);
     }
@@ -223,12 +223,12 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-4 h-4 text-amber-400" />
               <h3 className="font-bold text-white text-sm">
-                Интерактивный симулятор отчетов Puppet в реальном времени
+                Live Puppet Report & Event Simulator
               </h3>
             </div>
             <p className="text-slate-300 mb-4">
-              Нажмите одну из кнопок ниже, чтобы отправить сгенерированный Puppet-отчет в API.
-              Благодаря Server-Sent Events (SSE) дэшборд мгновенно обновит графики, узлы и ленту событий.
+              Click any scenario below to ingest a simulated Puppet transaction into the API.
+              The dashboard updates graphs, nodes, and live events instantly via SSE.
             </p>
 
             <div className="flex flex-wrap gap-2.5">
@@ -238,7 +238,7 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
                 className="px-3.5 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-semibold transition cursor-pointer flex items-center gap-2"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Отправить успешный отчет (In Sync)</span>
+                <span>Simulate Success (In Sync)</span>
               </button>
 
               <button
@@ -247,7 +247,7 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
                 className="px-3.5 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-semibold transition cursor-pointer flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4 text-sky-400" />
-                <span>Отправить отчет с изменениями (Changed)</span>
+                <span>Simulate Corrective Change (Changed)</span>
               </button>
 
               <button
@@ -256,7 +256,7 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
                 className="px-3.5 py-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold transition cursor-pointer flex items-center gap-2"
               >
                 <AlertTriangle className="w-4 h-4 text-rose-400" />
-                <span>Отправить сбойный отчет (Failed Service)</span>
+                <span>Simulate Failure (Catalog Error) (Failed Service)</span>
               </button>
             </div>
 
@@ -273,7 +273,7 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-slate-200 flex items-center gap-2">
                 <Server className="w-4 h-4 text-amber-400" />
-                <span>1. Настройка Puppet Master (puppet.conf)</span>
+                <span>1. Puppet Master Configuration (puppet.conf)</span>
               </h4>
               <button
                 onClick={() => handleCopy(puppetConfSnippet, 'conf')}
@@ -293,7 +293,7 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-slate-200 flex items-center gap-2">
                 <Terminal className="w-4 h-4 text-sky-400" />
-                <span>2. Прямая отправка отчета через cURL (HTTP POST /api/reports)</span>
+                <span>2. Direct HTTP POST report delivery via cURL</span>
               </h4>
               <button
                 onClick={() => handleCopy(curlSnippet, 'curl')}
@@ -313,14 +313,14 @@ facter -p --json | curl -X POST ${window.location.origin}/api/facts \\
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-slate-200 flex items-center gap-2">
                 <Database className="w-4 h-4 text-emerald-400" />
-                <span>3. Отправка системных фактов Facter (HTTP POST /api/facts)</span>
+                <span>3. Node Facter facts push (HTTP POST /api/facts)</span>
               </h4>
               <button
                 onClick={() => handleCopy(factsSnippet, 'facts')}
                 className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer font-mono text-[11px]"
               >
                 {copiedFacts ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>Скопировать</span>
+                <span>Copy</span>
               </button>
             </div>
             <pre className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 overflow-x-auto">

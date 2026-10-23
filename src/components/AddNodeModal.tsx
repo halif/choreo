@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Server, Plus } from 'lucide-react';
 import { PuppetNode, NodeGroup } from '../types';
+import { useTranslation } from '../context/LanguageContext';
 
 interface AddNodeModalProps {
   groups: NodeGroup[];
@@ -13,6 +14,7 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
   onClose,
   onAddNode
 }) => {
+  const { t, language } = useTranslation();
   const [certname, setCertname] = useState('');
   const [ip, setIp] = useState('10.20.1.');
   const [environment, setEnvironment] = useState('production');
@@ -47,7 +49,7 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
         <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Server className="w-5 h-5 text-amber-400" />
-            <h3 className="text-base font-bold text-white">Enroll New Puppet Node</h3>
+            <h3 className="text-base font-bold text-white">{t.enrollNodeTitle}</h3>
           </div>
           <button
             onClick={onClose}
@@ -59,11 +61,13 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
-            <label className="block text-slate-300 mb-1 font-medium">FQDN / Certificate Name (Certname) *</label>
+            <label className="block text-slate-300 mb-1 font-medium">
+              {language === 'ru' ? 'FQDN / Имя сертификата (Certname) *' : 'FQDN / Certificate Name (Certname) *'}
+            </label>
             <input
               type="text"
               required
-              placeholder="например: app-server-01.prod.acme.net"
+              placeholder={language === 'ru' ? 'например: app-server-01.prod.acme.net' : 'e.g. app-server-01.prod.acme.net'}
               value={certname}
               onChange={(e) => setCertname(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 font-mono placeholder-slate-500 focus:outline-none focus:border-amber-500"
@@ -72,7 +76,7 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-300 mb-1 font-medium">IP / OS</label>
+              <label className="block text-slate-300 mb-1 font-medium">{t.ipAddress}</label>
               <input
                 type="text"
                 placeholder="10.20.1.55"
@@ -83,7 +87,7 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-300 mb-1 font-medium">Environment</label>
+              <label className="block text-slate-300 mb-1 font-medium">{t.environment}</label>
               <select
                 value={environment}
                 onChange={(e) => setEnvironment(e.target.value)}
@@ -98,7 +102,7 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-300 mb-1 font-medium">Operating System</label>
+              <label className="block text-slate-300 mb-1 font-medium">{t.osDistribution}</label>
               <select
                 value={os}
                 onChange={(e) => setOs(e.target.value)}
@@ -113,13 +117,13 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-300 mb-1 font-medium">Group</label>
+              <label className="block text-slate-300 mb-1 font-medium">{t.groupFilterLabel}</label>
               <select
                 value={selectedGroup}
                 onChange={(e) => setSelectedGroup(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-amber-500"
               >
-                <option value="">No Group</option>
+                <option value="">{language === 'ru' ? 'Без группы' : 'No Group'}</option>
                 {groups.map((g) => (
                   <option key={g.name} value={g.name}>{g.name}</option>
                 ))}
@@ -129,7 +133,7 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
 
           <div>
             <label className="block text-slate-300 mb-1 font-medium">
-              Assigned Classes (one per line)
+              {language === 'ru' ? 'Назначенные классы (по одному на строку)' : 'Assigned Classes (one per line)'}
             </label>
             <textarea
               rows={3}
@@ -145,14 +149,14 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition cursor-pointer"
             >
-              Cancel
+              {t.cancel}
             </button>
             <button
               type="submit"
               className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition cursor-pointer flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
-              <span>Enroll Node</span>
+              <span>{t.enrollNode}</span>
             </button>
           </div>
         </form>
