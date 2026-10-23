@@ -21,11 +21,11 @@ import {
   Tooltip,
   PieChart,
   Pie,
-  Cell,
-  Legend
+  Cell
 } from 'recharts';
 import { DashboardMetrics, PuppetNode, LivePuppetEvent } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { useTranslation } from '../context/LanguageContext';
 
 interface OverviewViewProps {
   metrics: DashboardMetrics | null;
@@ -46,11 +46,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onFilterStatus,
   onTriggerRun
 }) => {
+  const { t, language } = useTranslation();
+
   if (!metrics) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400">
         <RefreshCw className="w-6 h-6 animate-spin text-amber-500 mr-3" />
-        <span>Загрузка телеметрии Puppet...</span>
+        <span>{t.loadingTelemetry}</span>
       </div>
     );
   }
@@ -88,16 +90,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       });
 
   const rawDonut = [
-    { name: 'В норме', value: compliantNodes, color: '#10b981' },
-    { name: 'Изменены', value: changedNodes, color: '#0ea5e9' },
-    { name: 'Сбои', value: failedNodes, color: '#f43f5e' },
-    { name: 'Не отвечают', value: unresponsiveNodes, color: '#f59e0b' },
-    { name: 'Ожидают', value: pendingNodes, color: '#a855f7' }
+    { name: t.statusUnchanged, value: compliantNodes, color: '#10b981' },
+    { name: t.statusChanged, value: changedNodes, color: '#0ea5e9' },
+    { name: t.statusFailed, value: failedNodes, color: '#f43f5e' },
+    { name: t.statusUnresponsive, value: unresponsiveNodes, color: '#f59e0b' },
+    { name: t.statusPending, value: pendingNodes, color: '#a855f7' }
   ].filter(d => d.value > 0);
 
   const donutData = rawDonut.length > 0
     ? rawDonut
-    : [{ name: 'В норме', value: totalNodes || 1, color: '#10b981' }];
+    : [{ name: t.statusUnchanged, value: totalNodes || 1, color: '#10b981' }];
 
   return (
     <div className="space-y-6">
@@ -110,14 +112,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
             <div>
               <h3 className="font-semibold text-rose-200 text-sm sm:text-base flex items-center gap-2">
-                <span>Обнаружены сбои конфигурации Puppet ({failedNodesList.length} узла)</span>
+                <span>{t.criticalAlertTitle} ({failedNodesList.length})</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/30 text-rose-300 font-mono">
                   CRITICAL
                 </span>
               </h3>
               <p className="text-xs sm:text-sm text-rose-300/80 mt-1 max-w-2xl">
-                Узлы не смогли применить манифесты из-за ошибок запуска сервисов или недоступности пакетов.
-                Рекомендуется проверить отчеты и логи выполнения.
+                {t.criticalAlertDesc}
               </p>
             </div>
           </div>
@@ -126,7 +127,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               onClick={() => onFilterStatus('failed')}
               className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-500 hover:bg-rose-400 text-slate-950 transition cursor-pointer flex items-center gap-1.5 shadow"
             >
-              <span>Показать сбойные узлы</span>
+              <span>{t.showFailedNodes}</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -141,14 +142,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Всего узлов</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t.totalNodes}</span>
             <Server className="w-4 h-4 group-hover:text-amber-400 transition" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-white">
             {totalNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Комплаенс:</span>
+            <span>{t.complianceRate}:</span>
             <span className="font-mono text-emerald-400 font-semibold">{complianceRate}%</span>
           </div>
         </div>
@@ -159,14 +160,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between text-emerald-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">В норме</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t.inSync}</span>
             <CheckCircle2 className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400">
             {compliantNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
-            Без изменений каталога
+            {language === 'ru' ? 'Без изменений каталога' : 'Catalog in target state'}
           </div>
         </div>
 
@@ -176,14 +177,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           className="bg-slate-900 border border-slate-800 hover:border-sky-500/40 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between text-sky-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Изменены</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t.changed}</span>
             <RefreshCw className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-sky-400">
             {changedNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
-            Скорректировано Puppet
+            {language === 'ru' ? 'Скорректировано Puppet' : 'Applied corrections'}
           </div>
         </div>
 
@@ -197,14 +198,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between text-rose-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Сбои</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t.failed}</span>
             <XCircle className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-rose-400">
             {failedNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
-            {failedNodes > 0 ? 'Требуют внимания' : 'Нет ошибок'}
+            {failedNodes > 0
+              ? (language === 'ru' ? 'Требуют внимания' : 'Requires attention')
+              : (language === 'ru' ? 'Нет ошибок' : 'Zero failures')}
           </div>
         </div>
 
@@ -214,29 +217,31 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           className="bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between text-amber-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Не отвечают</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t.unresponsive}</span>
             <Clock className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-amber-400">
             {unresponsiveNodes}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
-            Таймаут прогона agent
+            {language === 'ru' ? 'Таймаут прогона agent' : 'Agent checkin timeout'}
           </div>
         </div>
 
         {/* Average Duration */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between text-purple-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Ср. время</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t.avgRunTime}</span>
             <Zap className="w-4 h-4" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-white">
             {metrics.avgRunDuration}
-            <span className="text-sm font-normal text-slate-400 ml-1">сек</span>
+            <span className="text-sm font-normal text-slate-400 ml-1">
+              {language === 'ru' ? 'сек' : 's'}
+            </span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400 truncate">
-            Применение каталога
+            {language === 'ru' ? 'Применение каталога' : 'Catalog execution'}
           </div>
         </div>
       </div>
@@ -249,24 +254,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <div>
               <h3 className="font-semibold text-white text-sm sm:text-base flex items-center gap-2">
                 <Activity className="w-4 h-4 text-amber-400" />
-                <span>Динамика прогонов Puppet (24 часа)</span>
+                <span>{t.historyTimeline}</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Распределение статусов отчетов агентов по временным интервалам
+                {language === 'ru'
+                  ? 'Распределение статусов отчетов агентов по временным интервалам'
+                  : 'Time-series distribution of agent execution report statuses'}
               </p>
             </div>
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1.5 text-slate-300">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                В норме
+                {t.statusUnchanged}
               </span>
               <span className="flex items-center gap-1.5 text-slate-300">
                 <span className="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block" />
-                Изменен
+                {t.statusChanged}
               </span>
               <span className="flex items-center gap-1.5 text-slate-300">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
-                Сбой
+                {t.statusFailed}
               </span>
             </div>
           </div>
@@ -302,7 +309,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <Area
                   type="monotone"
                   dataKey="unchanged"
-                  name="В норме"
+                  name={t.statusUnchanged}
                   stroke="#10b981"
                   fillOpacity={1}
                   fill="url(#colorUnchanged)"
@@ -310,7 +317,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <Area
                   type="monotone"
                   dataKey="changed"
-                  name="Изменены"
+                  name={t.statusChanged}
                   stroke="#0ea5e9"
                   fillOpacity={1}
                   fill="url(#colorChanged)"
@@ -318,7 +325,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <Area
                   type="monotone"
                   dataKey="failed"
-                  name="Сбои"
+                  name={t.statusFailed}
                   stroke="#f43f5e"
                   fillOpacity={1}
                   fill="url(#colorFailed)"
@@ -333,10 +340,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div>
             <h3 className="font-semibold text-white text-sm sm:text-base flex items-center gap-2">
               <Server className="w-4 h-4 text-amber-400" />
-              <span>Статусы узлов</span>
+              <span>{t.fleetStatusDist}</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Текущее состояние парка Puppet
+              {language === 'ru' ? 'Текущее состояние парка Puppet' : 'Fleet-wide health distribution'}
             </p>
           </div>
 
@@ -369,7 +376,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-2xl font-bold font-mono text-white leading-none">{totalNodes}</span>
               <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">
-                {totalNodes === 1 ? 'узел' : 'узлов'}
+                {language === 'ru' ? (totalNodes === 1 ? 'узел' : 'узлов') : (totalNodes === 1 ? 'node' : 'nodes')}
               </span>
             </div>
           </div>
@@ -393,17 +400,17 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-white text-sm sm:text-base flex items-center gap-2">
               <XCircle className="w-4 h-4 text-rose-400" />
-              <span>Узлы, требующие внимания</span>
+              <span>{t.actionRequired}</span>
             </h3>
             <span className="text-xs text-slate-400">
-              {failedNodesList.length} сбоев
+              {failedNodesList.length} {language === 'ru' ? 'сбоев' : 'failures'}
             </span>
           </div>
 
           {failedNodesList.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-xs sm:text-sm border border-dashed border-slate-800 rounded-lg">
               <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
-              Все узлы находятся в актуальном состоянии без зарегистрированных сбоев!
+              {t.noFailedNodes}
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -425,7 +432,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     <div className="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-2 font-mono">
                       <span>IP: {node.ip}</span>
                       <span>•</span>
-                      <span>ОС: {node.os}</span>
+                      <span>{language === 'ru' ? 'ОС' : 'OS'}: {node.os}</span>
                       <span>•</span>
                       <span>{new Date(node.lastRun).toLocaleTimeString()}</span>
                     </div>
@@ -436,20 +443,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       <button
                         onClick={() => onSelectReport(node.latestReportId!)}
                         className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition cursor-pointer flex items-center gap-1"
-                        title="Открыть отчет"
+                        title={t.viewReport}
                       >
                         <FileText className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Отчет</span>
+                        <span>{language === 'ru' ? 'Отчет' : 'Report'}</span>
                       </button>
                     )}
                     <button
                       onClick={() => onTriggerRun(node.certname)}
                       disabled={node.isAgentRunning}
                       className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold transition cursor-pointer flex items-center gap-1"
-                      title="Запустить puppet agent -t"
+                      title={t.triggerRun}
                     >
                       <Play className={`w-3.5 h-3.5 ${node.isAgentRunning ? 'animate-spin' : ''}`} />
-                      <span>{node.isAgentRunning ? 'Запуск...' : 'Повторить'}</span>
+                      <span>{node.isAgentRunning ? (language === 'ru' ? 'Запуск...' : 'Running...') : (language === 'ru' ? 'Повторить' : 'Retry')}</span>
                     </button>
                   </div>
                 </div>
@@ -464,18 +471,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-white text-sm sm:text-base flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
-                <span>Лента событий Puppet (Live Stream)</span>
+                <span>{t.liveEventStream}</span>
               </h3>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Авто-обновление
+                {language === 'ru' ? 'Авто-обновление' : 'Live updates'}
               </span>
             </div>
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {liveEvents.length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-500">
-                  Ожидание событий от агентов Puppet...
+                  {language === 'ru' ? 'Ожидание событий от агентов Puppet...' : 'Awaiting Puppet agent SSE events...'}
                 </div>
               ) : (
                 liveEvents.slice(0, 8).map((evt) => (
@@ -505,8 +512,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span>Прослушивание SSE сокета: <code className="text-slate-300 font-mono">/api/events</code></span>
-            <span>{liveEvents.length} событий зафиксировано</span>
+            <span>
+              {language === 'ru' ? 'Прослушивание SSE сокета:' : 'SSE Event Stream:'}{' '}
+              <code className="text-slate-300 font-mono">/api/events</code>
+            </span>
+            <span>
+              {liveEvents.length} {language === 'ru' ? 'событий зафиксировано' : 'events recorded'}
+            </span>
           </div>
         </div>
       </div>

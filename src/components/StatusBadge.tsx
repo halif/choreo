@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, Clock, RefreshCw } from 'lucide-react';
 import { PuppetNodeStatus } from '../types';
+import { useTranslation } from '../context/LanguageContext';
 
 interface StatusBadgeProps {
   status: PuppetNodeStatus | string;
@@ -9,44 +10,46 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md', showLabel = true }) => {
+  const { t } = useTranslation();
+
   const getStatusConfig = (s: string) => {
     switch (s) {
       case 'unchanged':
         return {
-          label: 'unchanged (normal)',
-          shortLabel: 'normal',
+          label: t.statusUnchangedDesc,
+          shortLabel: t.statusUnchanged,
           icon: CheckCircle2,
           bgColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
           dotColor: 'bg-emerald-400'
         };
       case 'changed':
         return {
-          label: 'changed',
-          shortLabel: 'changed',
+          label: t.statusChangedDesc,
+          shortLabel: t.statusChanged,
           icon: RefreshCw,
           bgColor: 'bg-sky-500/10 text-sky-400 border-sky-500/30',
           dotColor: 'bg-sky-400'
         };
       case 'failed':
         return {
-          label: 'failed',
-          shortLabel: 'fail',
+          label: t.statusFailedDesc,
+          shortLabel: t.statusFailed,
           icon: XCircle,
           bgColor: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
           dotColor: 'bg-rose-400'
         };
       case 'unresponsive':
         return {
-          label: 'Offline',
-          shortLabel: 'Off',
+          label: t.statusUnresponsiveDesc,
+          shortLabel: t.statusUnresponsive,
           icon: Clock,
           bgColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
           dotColor: 'bg-amber-400'
         };
       case 'pending':
         return {
-          label: 'Pending',
-          shortLabel: 'pending',
+          label: t.statusPendingDesc,
+          shortLabel: t.statusPending,
           icon: AlertTriangle,
           bgColor: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
           dotColor: 'bg-purple-400'
