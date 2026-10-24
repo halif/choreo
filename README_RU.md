@@ -1,16 +1,16 @@
-# 🎭 Choreo v2.7.0
+# 🎭 Choreo v2.7.5
 
-> **Современная панель мониторинга и управления инфраструктурой Puppet в реальном времени**
+> **Modern, Real-Time Web Dashboard & Control Plane for Puppet Master & Fleet Infrastructure**
 
 [![CI/CD Pipeline](https://github.com/halif/choreo/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/halif/choreo/actions/workflows/ci-cd.yml)
-[![Релиз](https://img.shields.io/badge/релиз-v2.7.0-amber.svg)](https://github.com/halif/choreo/releases)
+[![Release](https://img.shields.io/badge/release-v2.7.0-amber.svg)](https://github.com/halif/choreo/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/halif/choreo/pkgs/container/choreo)
-[![Лицензия](https://img.shields.io/badge/лицензия-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Puppet](https://img.shields.io/badge/puppet-7.x%20%7C%208.x-orange.svg)](https://puppet.com/)
 [![React](https://img.shields.io/badge/frontend-React%2019%20%2B%20Tailwind-61dafb.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/backend-Express%20%2B%20TypeScript-green.svg)](https://nodejs.org/)
 
-[English version (README.md)](./README.md)
+[🇷🇺 Русская версия (README.ru.md)](./README_RU.md)
 
 ---
 
@@ -18,61 +18,61 @@
 
 ---
 
-## 🌟 О проекте
+## 🌟 Overview
 
-**Choreo** — это легковесная, современная альтернатива Puppet Enterprise Console и PuppetBoard с открытым исходным кодом. Панель создана для системных администраторов и DevOps-инженеров, позволяя централизованно отслеживать состояние узлов Puppet Agent, выявлять дрейф конфигураций (configuration drift) и инициировать удалённые прогоны каталогов сразу в нескольких окружениях (`production`, `staging`, `development`).
+**Choreo** is an open-source, lightweight, and modern alternative to Puppet Enterprise Console and PuppetBoard. It provides system administrators and DevOps engineers with real-time observability and remote run control over Puppet Agent nodes across multiple environments (`production`, `staging`, `development`).
 
-Благодаря использованию шины событий Server-Sent Events (SSE), автоматической синхронизации системных фактов Facter и вебхукам для отчётов, интерфейс моментально отображает результаты выполнения `puppet agent -t` без необходимости обновлять страницу вручную.
-
----
-
-## 📸 Скриншоты интерфейса
-
-### 📊 Главный дашборд и лента событий
-![Главный дашборд](screens/main.jpg)
-
-### 🖥️ Инвентарь флота узлов и быстрое управление
-![Инвентарь узлов](screens/Nodes.jpg)
-
-### ⚡ Аналитика производительности и времени прогонов
-![Аналитика производительности](screens/Performance.jpg)
-
-### 🩺 Здоровье и метрики Puppet Master сервера
-![Здоровье сервера](screens/Health.jpg)
+Featuring live Server-Sent Events (SSE), instant report ingestion via webhooks, automated Facter facts synchronization, and single-click execution of `puppet agent -t`, Choreo helps you track infrastructure state and configuration drift effortlessly.
 
 ---
 
-## ✨ Основные возможности
+## 📸 Screenshots
 
-- 🌐 **Двуязычный интерфейс и мгновенное переключение языка:** Моментальное переключение между русским и английским языками (RU / EN) без перезагрузки страницы с автоматическим сохранением выбора в `localStorage`.
-- 🖥️ **Инвентарь флота узлов:** Мониторинг актуального статуса (`В норме`, `Изменен`, `Сбой`, `Не отвечает`), FQDN, IP-адресов, версий ОС, привязанных классов и окружений.
-- ⚡ **Запуск агента в один клик:** Удаленный запуск команды `puppet agent -t` на конкретном узле или массовый запуск по выбранным серверам/всему флоту.
-- 🔍 **Нативная поддержка Facter 4 & Синхронизация фактов:** Приём структурированных фактов (`facter -p --json`), автоматическое распознавание ОС, сетевых адресов и железа.
-- 📄 **Детальные отчеты Puppet:** Просмотр транзакционных отчетов Puppet, статистики ресурсов (без изменений / применены изменения / сбои), времени выполнения, диффов и логов.
-- 📋 **Удобный экспорт отчетов в JSON:** Копирование сырого JSON отчета в один клик с поддержкой надежного резервного копирования для HTTP-соединений.
-- 🔄 **Шина событий реального времени (SSE):** Интеграция Server-Sent Events мгновенно сообщает в браузер о старте прогона, завершении работы агента и поступлении новых отчётов.
-- 🏷️ **Группы узлов и классификация (ENC):** Удобная группировка узлов, распределение по окружениям и назначение Puppet-классов.
-- 🐳 **Готовность к Docker и CI/CD:** Автоматизированный пайплайн GitHub Actions с автоматической публикацией образов в GitHub Container Registry (GHCR).
+### 📊 Overview & Real-Time Stream
+![Choreo Overview Dashboard](screens/main.jpg)
+
+### 🖥️ Node Fleet Inventory & Quick Actions
+![Node Fleet Inventory](screens/Nodes.jpg)
+
+### ⚡ Run Performance & Resource Trends
+![Performance Analytics](screens/Performance.jpg)
+
+### 🩺 Puppet Master Server Health & Telemetry
+![Server Health](screens/Health.jpg)
 
 ---
 
-## 🏗️ Архитектура
+## ✨ Features
+
+- 🌐 **Bilingual Interface & Live Language Switcher:** Instant, zero-reload switching between English and Russian with persistent preference saving in `localStorage`.
+- 🖥️ **Live Node Fleet Inventory:** View node statuses (`unchanged`, `changed`, `failed`, `unresponsive`), FQDN, IPs, operating systems, assigned classes, and environments.
+- ⚡ **One-Click Agent Runs:** Trigger `puppet agent -t` directly on individual nodes or batch execute across the entire fleet.
+- 🔍 **Native Facter 4 Ingestion & Live Sync:** Ingest structured facts directly (`facter -p --json`) with auto-detected OS distributions, network interfaces, and hardware specs.
+- 📄 **Deep Report Inspection:** Inspect detailed Puppet transaction reports including resource metrics (unchanged / changed / failed), run durations, diffs, and full execution logs.
+- 📋 **Reliable JSON Report Export:** One-click copy for raw Puppet reports with synchronous HTTP fallback support.
+- 🔄 **Real-Time Live Event Bus:** Built-in Server-Sent Events (SSE) stream instant run progress and report ingestion without requiring manual page refreshes.
+- 🏷️ **Node Groups & ENC Classification:** Manage node classifications and environment assignments from a sleek interface.
+- 🐳 **Docker & CI/CD Ready:** Automated GitHub Actions pipeline with container publishing to GitHub Container Registry (GHCR).
+
+---
+
+## 🏗️ Architecture
 
 ```
-[ Узлы Puppet Agent ]
+[ Puppet Agent Nodes ]
         │
-        │ 1. Применение каталога и генерация отчёта / факты Facter
+        │ 1. Catalog run & report generation / Facter facts
         ▼
 [ Puppet Server / Master ]
         │
-        │ 2. Процессор отчётов отправляет Webhook (/api/reports)
+        │ 2. Webhook report processor (/api/webhook/report)
         ▼
 ┌────────────────────────────────────────────────────────┐
 │                      CHOREO v2.7.0                     │
 │                                                        │
-│  [ Express API + SSE Bus ] ─── (порт 3000)             │
+│  [ Express API + SSE Bus ] ─── (port 3000)             │
 │            ▲                                           │
-│            │ Состояние узлов и реестр отчётов          │
+│            │ JSON State & Node Inventory               │
 │            ▼                                           │
 │  [ React SPA + Tailwind CSS + Lucide Icons ]           │
 └────────────────────────────────────────────────────────┘
@@ -80,11 +80,11 @@
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### Вариант А: Запуск через Docker (Самый быстрый) 🐳
+### Option A: Run via Docker (Fastest) 🐳
 
-Choreo собирается автоматически и публикуется в GitHub Container Registry:
+Choreo is published directly to GitHub Container Registry:
 
 ```bash
 docker run -d \
@@ -94,12 +94,12 @@ docker run -d \
   ghcr.io/halif/choreo:latest
 ```
 
-Откройте в браузере: `http://<IP_СЕРВЕРА>:3000`.
+Open `http://<YOUR_SERVER_IP>:3000` in your browser.
 
 ---
 
-### Вариант Б: Автоматическая установка как Systemd сервис 🌟
-Если вы разворачиваете Choreo на чистом Linux сервере (Ubuntu/Debian, CentOS/AlmaLinux/RHEL):
+### Option B: Automated Systemd Service Install 🌟
+If you are deploying Choreo as a system daemon on a clean Linux server (Ubuntu/Debian, CentOS/AlmaLinux/RHEL):
 
 ```bash
 git clone https://github.com/halif/choreo.git
@@ -107,7 +107,7 @@ cd choreo
 bash install-service.sh
 ```
 
-Управление сервисом:
+Manage the service:
 ```bash
 sudo systemctl status choreo
 sudo systemctl restart choreo
@@ -116,31 +116,31 @@ sudo journalctl -u choreo -f
 
 ---
 
-### Вариант В: Ручная установка и режим разработки
+### Option C: Manual Installation & Development
 
 ```bash
 git clone https://github.com/halif/choreo.git
 cd choreo
 npm install
 
-# Продакшен-сборка и запуск:
+# Production build and run:
 npm run build
 npm start
 
-# Режим разработки (с горячей перезагрузкой):
+# Development mode (Hot-reload):
 npm run dev
 ```
 
-Интерфейс Choreo будет доступен по адресу: `http://<IP_СЕРВЕРА>:3000`.
+Choreo UI will be available at `http://<YOUR_SERVER_IP>:3000`.
 
 ---
 
-## ⚙️ Настройка Webhook в Puppet Server
+## ⚙️ Configuring Puppet Server Webhook
 
-Чтобы Puppet Server автоматически отправлял отчеты после каждого запуска агента, настройте процессор отчетов:
+To automatically send Puppet reports to Choreo after each agent run, configure a custom report processor on your Puppet Server.
 
-### Шаг 1: Создайте скрипт процессора отчетов
-На Puppet Server создайте файл `/etc/puppetlabs/puppet/choreo_report.rb`:
+### Step 1: Create Report Processor Script
+On your Puppet Server, create `/etc/puppetlabs/puppet/choreo_report.rb`:
 
 ```ruby
 require 'puppet'
@@ -201,67 +201,67 @@ Puppet::Reports.register_report(:choreo) do
 end
 ```
 
-### Шаг 2: Включите репорт в `puppet.conf`
-В файле `/etc/puppetlabs/puppet/puppet.conf` в блоке `[master]` или `[server]`:
+### Step 2: Enable in `puppet.conf`
+In `/etc/puppetlabs/puppet/puppet.conf` under `[master]` or `[server]`:
 
 ```ini
 [master]
 reports = store, choreo
 ```
 
-Перезапустите Puppet Server:
+Restart Puppet Server:
 ```bash
 sudo systemctl restart puppetserver
 ```
 
 ---
 
-## 💻 Синхронизация фактов узла (Facter)
+## 💻 Syncing Node Facts (Facter)
 
-Чтобы отправить свежие системные факты и характеристики узла в Choreo:
+To send live hardware and OS telemetry from any node to Choreo:
 
 ```bash
 facter -p --json | curl -X POST http://<CHOREO_IP>:3000/api/nodes/<CERTNAME>/facts \
   -H "Content-Type: application/json" \
   -d @-
 ```
-Либо нажмите кнопку **«Синхронизировать факты»** прямо в модальном окне узла в веб-интерфейсе.
+Or click the **"Sync Facts"** button directly inside the Node Details modal in the web interface.
 
 ---
 
-## 📡 API Эндпоинты
+## 📡 API Endpoints
 
-| Метод | Эндпоинт | Описание |
+| Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/metrics` | Метрики состояния флота, среднее время прогона и таймлайн |
-| `GET` | `/api/nodes` | Список всех обнаруженных Puppet узлов |
-| `GET` | `/api/nodes/:certname` | Детальная информация об узле, факты и история |
-| `POST` | `/api/nodes/:certname/facts` | Приём структурированных JSON-фактов Facter |
-| `POST` | `/api/nodes/:certname/sync-facts` | Запуск локального facter и обновление телеметрии |
-| `GET` | `/api/reports` | Список недавних транзакционных отчетов Puppet |
-| `GET` | `/api/reports/:id` | Детальный отчет, журнал логов и метрики ресурсов |
-| `POST` | `/api/reports` | Приём отчёта Puppet Server через Webhook |
-| `POST` | `/api/run/:certname` | Удаленный запуск `puppet agent -t` на узле |
-| `GET` | `/api/events` | Поток событий в реальном времени Server-Sent Events (SSE) |
+| `GET` | `/api/metrics` | Cluster health metrics, run durations, and 24h timeline |
+| `GET` | `/api/nodes` | List all discovered Puppet nodes |
+| `GET` | `/api/nodes/:certname` | Node facts, details, and execution history |
+| `POST` | `/api/nodes/:certname/facts` | Ingest structured Facter JSON for node |
+| `POST` | `/api/nodes/:certname/sync-facts` | Run local facter and refresh node telemetry |
+| `GET` | `/api/reports` | List recent Puppet transaction reports |
+| `GET` | `/api/reports/:id` | Fetch detailed report logs & resource stats |
+| `POST` | `/api/reports` | Webhook endpoint for Puppet report submission |
+| `POST` | `/api/run/:certname` | Triggers `puppet agent -t` remotely on node |
+| `GET` | `/api/events` | Server-Sent Events (SSE) live event stream |
 
 ---
 
-## 🔄 CI/CD Пайплайн
+## 🔄 CI/CD Pipeline
 
-В проекте настроен пайплайн автоматической непрерывной интеграции и доставки (GitHub Actions `.github/workflows/ci-cd.yml`):
-- **Lint & Build:** Проверка статической типизации TypeScript (`tsc --noEmit`) и компиляция.
-- **Docker Build & Push:** Автоматическая сборка Multi-stage Docker-образа и публикация в **GHCR** (`ghcr.io/halif/choreo`).
-- **Автодеплой:** Опциональное обновление сервиса по SSH на Puppet Master хосте без простоев.
-
----
-
-## 🤝 Участие в разработке
-
-Будем рады вашим предложениям, отчетам об ошибках и Pull Request'ам!
-Создавайте [Issue](https://github.com/halif/choreo/issues) или присылайте [Pull Request](https://github.com/halif/choreo/pulls).
+The project features a continuous integration and deployment pipeline powered by GitHub Actions (`.github/workflows/ci-cd.yml`):
+- **Lint & Build:** Validates TypeScript types (`tsc --noEmit`) and compiles bundles.
+- **Docker Build & Push:** Automates multi-stage Docker build and pushes images to **GHCR** (`ghcr.io/halif/choreo`).
+- **Automated Deploy:** Supports optional zero-downtime SSH deployments to your Puppet Master host.
 
 ---
 
-## 📝 Лицензия
+## 🤝 Contributing
 
-Проект распространяется под свободной лицензией [MIT License](LICENSE).
+Contributions, bug reports, and feature requests are welcome!
+Feel free to open an [Issue](https://github.com/halif/choreo/issues) or submit a [Pull Request](https://github.com/halif/choreo/pulls).
+
+---
+
+## 📝 License
+
+This project is licensed under the [MIT License](LICENSE).
