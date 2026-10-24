@@ -3,7 +3,7 @@
 > **Modern, Real-Time Web Dashboard & Control Plane for Puppet Master & Fleet Infrastructure**
 
 [![CI/CD Pipeline](https://github.com/halif/choreo/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/halif/choreo/actions/workflows/ci-cd.yml)
-[![Release](https://img.shields.io/badge/release-v2.6.5-amber.svg)](https://github.com/halif/choreo/releases)
+[![Release](https://img.shields.io/badge/release-v2.7.0-amber.svg)](https://github.com/halif/choreo/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/halif/choreo/pkgs/container/choreo)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Puppet](https://img.shields.io/badge/puppet-7.x%20%7C%208.x-orange.svg)](https://puppet.com/)
@@ -11,6 +11,10 @@
 [![Node.js](https://img.shields.io/badge/backend-Express%20%2B%20TypeScript-green.svg)](https://nodejs.org/)
 
 [🇷🇺 Русская версия (README.ru.md)](./README_RU.md)
+
+---
+
+![Choreo Web Dashboard](screens/main.jpg)
 
 ---
 
@@ -22,8 +26,25 @@ Featuring live Server-Sent Events (SSE), instant report ingestion via webhooks, 
 
 ---
 
+## 📸 Screenshots
+
+### 📊 Overview & Real-Time Stream
+![Choreo Overview Dashboard](screens/main.jpg)
+
+### 🖥️ Node Fleet Inventory & Quick Actions
+![Node Fleet Inventory](screens/Nodes.jpg)
+
+### ⚡ Run Performance & Resource Trends
+![Performance Analytics](screens/Performance.jpg)
+
+### 🩺 Puppet Master Server Health & Telemetry
+![Server Health](screens/Health.jpg)
+
+---
+
 ## ✨ Features
 
+- 🌐 **Bilingual Interface & Live Language Switcher:** Instant, zero-reload switching between English and Russian with persistent preference saving in `localStorage`.
 - 🖥️ **Live Node Fleet Inventory:** View node statuses (`unchanged`, `changed`, `failed`, `unresponsive`), FQDN, IPs, operating systems, assigned classes, and environments.
 - ⚡ **One-Click Agent Runs:** Trigger `puppet agent -t` directly on individual nodes or batch execute across the entire fleet.
 - 🔍 **Native Facter 4 Ingestion & Live Sync:** Ingest structured facts directly (`facter -p --json`) with auto-detected OS distributions, network interfaces, and hardware specs.
@@ -47,7 +68,7 @@ Featuring live Server-Sent Events (SSE), instant report ingestion via webhooks, 
         │ 2. Webhook report processor (/api/webhook/report)
         ▼
 ┌────────────────────────────────────────────────────────┐
-│                      CHOREO v2.6.1                     │
+│                      CHOREO v2.7.0                     │
 │                                                        │
 │  [ Express API + SSE Bus ] ─── (port 3000)             │
 │            ▲                                           │
