@@ -1,9 +1,9 @@
-# 🎭 Choreo v2.6.5
+# 🎭 Choreo v2.7.0
 
 > **Современная панель мониторинга и управления инфраструктурой Puppet в реальном времени**
 
 [![CI/CD Pipeline](https://github.com/halif/choreo/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/halif/choreo/actions/workflows/ci-cd.yml)
-[![Релиз](https://img.shields.io/badge/релиз-v2.6.5-amber.svg)](https://github.com/halif/choreo/releases)
+[![Релиз](https://img.shields.io/badge/релиз-v2.7.0-amber.svg)](https://github.com/halif/choreo/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/halif/choreo/pkgs/container/choreo)
 [![Лицензия](https://img.shields.io/badge/лицензия-MIT-blue.svg)](LICENSE)
 [![Puppet](https://img.shields.io/badge/puppet-7.x%20%7C%208.x-orange.svg)](https://puppet.com/)
@@ -44,6 +44,7 @@
 
 ## ✨ Основные возможности
 
+- 🌐 **Двуязычный интерфейс и мгновенное переключение языка:** Моментальное переключение между русским и английским языками (RU / EN) без перезагрузки страницы с автоматическим сохранением выбора в `localStorage`.
 - 🖥️ **Инвентарь флота узлов:** Мониторинг актуального статуса (`В норме`, `Изменен`, `Сбой`, `Не отвечает`), FQDN, IP-адресов, версий ОС, привязанных классов и окружений.
 - ⚡ **Запуск агента в один клик:** Удаленный запуск команды `puppet agent -t` на конкретном узле или массовый запуск по выбранным серверам/всему флоту.
 - 🔍 **Нативная поддержка Facter 4 & Синхронизация фактов:** Приём структурированных фактов (`facter -p --json`), автоматическое распознавание ОС, сетевых адресов и железа.
@@ -67,7 +68,7 @@
         │ 2. Процессор отчётов отправляет Webhook (/api/reports)
         ▼
 ┌────────────────────────────────────────────────────────┐
-│                      CHOREO v2.6.1                     │
+│                      CHOREO v2.7.0                     │
 │                                                        │
 │  [ Express API + SSE Bus ] ─── (порт 3000)             │
 │            ▲                                           │
