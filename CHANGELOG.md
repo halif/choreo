@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.7.5] - 2026-10-23
+
+### 🚀 Added
+- **Full Internationalization (i18n) & Bilingual Support:**
+    - Added interactive in-app language switcher (`[ 🌐 EN | RU ]`) in the top navigation header for instantaneous, zero-reload switching.
+    - Comprehensive English and Russian localization across all core views:
+        - **Overview:** KPI cards, live telemetry stream, health status distributions, and alert banners.
+        - **Node Fleet Inventory:** Status badges (`In Sync` / `В норме`, `Changed` / `Изменен`, `Failed` / `Сбой`, `Unresponsive` / `Не отвечает`), environment selectors, and search filters.
+        - **Reports Inspection:** Transaction details, execution logs, diff viewers, and JSON copy actions.
+        - **Performance Analytics & JVM Health:** Execution duration graphs, timing phase breakdowns, and Master telemetry.
+        - **ENC Node Groups & Webhook Setup:** Modals for node enrollment, class assignments, and curl simulation commands.
+    - Persistent user preference saved in browser `localStorage` (`choreo_lang`) with automatic browser language fallback.
+- **High-Resolution Interface Documentation:**
+    - Added screenshot previews to `README.md` and `README.ru.md` showcasing the main dashboard, node inventory, run performance, and server health.
+
+### 🛠️ Fixed
+- **Markdown Formatting & Linter Compatibility:**
+    - Replaced inline HTML tags (`<p align="center">`, `style="..."`) with standard native Markdown image references to resolve MD033 and HTML5 obsolete attribute warnings.
+    - Structured documentation images into clean, responsive sections avoiding unicode width table formatting issues.
+- **Reliable Report Export:**
+    - Hardened synchronous clipboard copying for Puppet JSON transaction reports under non-HTTPS local networks.
+
+---
 
 ## [2.7.0] - 2026-10-17
 
