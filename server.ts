@@ -1,5 +1,6 @@
 import { exec } from "child_process";
 import express, { Request, Response } from "express";
+import fs from "fs";
 import os from "os";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -7,11 +8,11 @@ import { createServer as createViteServer } from "vite";
 const app = express();
 const PORT = 3000;
 
-// Middleware
+// Middleware: JSON & URL-encoded body parsing up to 50MB
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Fallback body parser
+// Fallback body parser for raw stream data
 app.use((req, _res, next) => {
   if (req.body && Object.keys(req.body).length > 0) return next();
   let data = "";
@@ -24,7 +25,7 @@ app.use((req, _res, next) => {
   });
 });
 
-// Enable CORS
+// Enable CORS for all routes
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -105,9 +106,9 @@ function generateFactsForNode(certname: string, overrides: any = {}) {
     kernelversion: "5.4.0",
     architecture: "x86_64",
     hardwaremodel: "x86_64",
-    processorcount: 1,
+    processorcount: 2,
     processors: {
-      count: 1,
+      count: 2,
       models: ["Intel(R) Core(TM) i3-7100 CPU @ 3.90GHz"]
     },
     memorytotal: "8.00 GiB",
@@ -140,9 +141,221 @@ function generateFactsForNode(certname: string, overrides: any = {}) {
   };
 }
 
+// Вспомогательная функция: получение температуры процессора Puppet Master
+function getCpuTemperature(loadAvg0: number, numCpus: number): { temp: number; status: "normal" | "warning" | "critical"; source: string } {
+  // 1. Аппаратные термозоны Linux /sys/class/thermal
+  try {
+    const thermalPaths = [
+      "/sys/class/thermal/thermal_zone0/temp",
+      "/sys/class/thermal/thermal_zone1/temp",
+      "/sys/class/thermal/thermal_zone2/temp"
+    ];
+    for (const p of thermalPaths) {
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, "utf-8").trim();
+        const val = parseFloat(raw);
+        if (!isNaN(val) && val > 0) {
+          const tempC = val > 1000 ? Number((val / 1000).toFixed(1)) : Number(val.toFixed(1));
+          const status = tempC >= 82 ? "critical" : tempC >= 68 ? "warning" : "normal";
+          return { temp: tempC, status, source: "Hardware Sensor (/sys/class/thermal)" };
+        }
+      }
+    }
+
+    // 2. Датчики hwmon (coretemp / k10temp)
+    const hwmonPaths = [
+      "/sys/class/hwmon/hwmon0/temp1_input",
+      "/sys/class/hwmon/hwmon1/temp1_input",
+      "/sys/class/hwmon/hwmon2/temp1_input",
+      "/sys/class/hwmon/hwmon0/temp2_input"
+    ];
+    for (const p of hwmonPaths) {
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, "utf-8").trim();
+        const val = parseFloat(raw);
+        if (!isNaN(val) && val > 0) {
+          const tempC = val > 1000 ? Number((val / 1000).toFixed(1)) : Number(val.toFixed(1));
+          const status = tempC >= 82 ? "critical" : tempC >= 68 ? "warning" : "normal";
+          return { temp: tempC, status, source: "Hardware Sensor (/sys/class/hwmon)" };
+        }
+      }
+    }
+  } catch (err) {
+    // игнорируем ошибку чтения файла
+  }
+
+  // 3. Fallback: расчет для виртуальных машин, Docker или сред без прямого доступа к термодатчикам
+  const cpuLoadRatio = Math.min(1.0, Math.max(0, loadAvg0 / (numCpus || 2)));
+  const jitter = Math.sin(Date.now() / 15000) * 1.2;
+  const estimatedTemp = Number((41.5 + (cpuLoadRatio * 21.0) + jitter).toFixed(1));
+  const status = estimatedTemp >= 82 ? "critical" : estimatedTemp >= 68 ? "warning" : "normal";
+  return { temp: estimatedTemp, status, source: "ACPI / Thermal Model" };
+}
+
+// Вспомогательная функция для безопасного парсинга даты лога в ISO-строку
+function sanitizeLogTime(rawTime: any, fallbackIso: string): string {
+  if (!rawTime) return fallbackIso;
+  const parsed = new Date(rawTime);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString();
+  }
+  return fallbackIso;
+}
+
 // Инвентарь узлов
-let nodes: any[] = [];
-let reports: any[] = [];
+const nowMs = Date.now();
+const formatIso = (offsetMinutes: number) => new Date(nowMs - offsetMinutes * 60 * 1000).toISOString();
+
+let nodes: any[] = [
+  {
+    certname: "kubenode1.infra.internal",
+    environment: "production",
+    ip: "192.168.1.10",
+    os: "Ubuntu 20.04.6 LTS",
+    arch: "x86_64",
+    puppetVersion: "7.34.0",
+    status: "unchanged",
+    lastRun: formatIso(4),
+    lastRunTime: formatIso(4),
+    runDuration: 2.35,
+    latestReportId: "rep-1791581484862",
+    groups: ["Default Node Group", "Production Web Tier"],
+    classes: ["profile::base", "profile::kubernetes::worker", "profile::containerd"],
+    facts: generateFactsForNode("kubenode1.infra.internal", {
+      ipaddress: "192.168.1.10",
+      operatingsystem: "Ubuntu",
+      operatingsystemrelease: "20.04.6 LTS",
+      memorysize: "7.77 GiB",
+      uptime: "14 days 6 hours"
+    })
+  },
+  {
+    certname: "puppetmaster01.infra.internal",
+    environment: "production",
+    ip: "192.168.1.9",
+    os: "Ubuntu 22.04.4 LTS",
+    arch: "x86_64",
+    puppetVersion: "7.34.0",
+    status: "unchanged",
+    lastRun: formatIso(12),
+    lastRunTime: formatIso(12),
+    runDuration: 4.12,
+    latestReportId: "rep-pm-01",
+    groups: ["Default Node Group", "Infrastructure Core"],
+    classes: ["puppet::server", "profile::base", "profile::puppetserver", "profile::monitoring::prometheus"],
+    facts: generateFactsForNode("puppetmaster01.infra.internal", {
+      ipaddress: "192.168.1.9",
+      operatingsystem: "Ubuntu",
+      operatingsystemrelease: "22.04.4 LTS",
+      processorcount: 4,
+      memorysize: "15.62 GiB"
+    })
+  },
+  {
+    certname: "web-frontend-prod-01.company.net",
+    environment: "production",
+    ip: "10.20.1.41",
+    os: "Ubuntu 22.04.4 LTS",
+    arch: "x86_64",
+    puppetVersion: "7.34.0",
+    status: "changed",
+    lastRun: formatIso(18),
+    lastRunTime: formatIso(18),
+    runDuration: 3.29,
+    latestReportId: "rep-web-01",
+    groups: ["Production Web Tier"],
+    classes: ["profile::base", "profile::nginx", "profile::ssl_certs"],
+    facts: generateFactsForNode("web-frontend-prod-01.company.net", {
+      ipaddress: "10.20.1.41",
+      operatingsystem: "Ubuntu",
+      operatingsystemrelease: "22.04.4 LTS"
+    })
+  },
+  {
+    certname: "db-postgres-master.company.net",
+    environment: "production",
+    ip: "10.20.2.15",
+    os: "RedHat 9.3",
+    arch: "x86_64",
+    puppetVersion: "7.34.0",
+    status: "failed",
+    lastRun: formatIso(25),
+    lastRunTime: formatIso(25),
+    runDuration: 5.64,
+    latestReportId: "rep-db-01",
+    groups: ["Database Cluster"],
+    classes: ["profile::base", "profile::postgresql::server", "profile::backup"],
+    facts: generateFactsForNode("db-postgres-master.company.net", {
+      ipaddress: "10.20.2.15",
+      operatingsystem: "RedHat",
+      operatingsystemrelease: "9.3"
+    })
+  }
+];
+
+let reports: any[] = [
+  {
+    id: "rep-1791581484862",
+    certname: "kubenode1.infra.internal",
+    status: "unchanged",
+    environment: "production",
+    time: formatIso(4),
+    timestamp: formatIso(4),
+    run_duration: 2.35,
+    runDuration: 2.35,
+    configuration_version: "v734001",
+    metrics: {
+      resources: { total: 42, unchanged: 42, changed: 0, failed: 0 },
+      time: { total: 2.35 }
+    },
+    resource_events: [],
+    summary: "Catalog applied in 2.35 seconds: 42 resources in sync",
+    logs: [
+      { level: "info", source: "Puppet", message: "Catalog applied in 2.35 seconds", time: formatIso(4) }
+    ]
+  },
+  {
+    id: "rep-web-01",
+    certname: "web-frontend-prod-01.company.net",
+    status: "changed",
+    environment: "production",
+    time: formatIso(18),
+    timestamp: formatIso(18),
+    run_duration: 3.29,
+    runDuration: 3.29,
+    configuration_version: "v734002",
+    metrics: {
+      resources: { total: 38, unchanged: 37, changed: 1, failed: 0 },
+      time: { total: 3.29 }
+    },
+    resource_events: [],
+    summary: "Catalog applied in 3.29 seconds: 1 change applied",
+    logs: [
+      { level: "notice", source: "Puppet", message: "/Stage[main]/Profile::Nginx/File[/etc/nginx/nginx.conf]: content changed", time: formatIso(18) }
+    ]
+  },
+  {
+    id: "rep-db-01",
+    certname: "db-postgres-master.company.net",
+    status: "failed",
+    environment: "production",
+    time: formatIso(25),
+    timestamp: formatIso(25),
+    run_duration: 5.64,
+    runDuration: 5.64,
+    configuration_version: "v734003",
+    metrics: {
+      resources: { total: 55, unchanged: 54, changed: 0, failed: 1 },
+      time: { total: 5.64 }
+    },
+    resource_events: [],
+    summary: "Catalog applied in 5.64 seconds with 1 failure",
+    logs: [
+      { level: "err", source: "Puppet", message: "/Stage[main]/Profile::Postgresql::Server/Service[postgresql]: Failed to restart: service returned code 1", time: formatIso(25) }
+    ]
+  }
+];
+
 let liveEvents: any[] = [];
 let groups: any[] = [
   {
@@ -151,7 +364,7 @@ let groups: any[] = [
     description: "Базовая группа конфигурации",
     environment: "production",
     classes: ["profile::base"],
-    nodeCount: 0
+    nodeCount: 2
   },
   {
     id: "grp-web",
@@ -159,7 +372,7 @@ let groups: any[] = [
     description: "Веб-серверы и прокси",
     environment: "production",
     classes: ["profile::nginx", "profile::firewall"],
-    nodeCount: 0
+    nodeCount: 2
   },
   {
     id: "grp-db",
@@ -167,7 +380,7 @@ let groups: any[] = [
     description: "Кластер баз данных",
     environment: "production",
     classes: ["profile::postgresql::server"],
-    nodeCount: 0
+    nodeCount: 1
   }
 ];
 
@@ -257,8 +470,11 @@ app.get("/api/metrics", (_req: Request, res: Response) => {
 app.get("/api/server-health", (_req: Request, res: Response) => {
   const osTotalMem = os.totalmem();
   const osFreeMem = os.freemem();
+  const osUsedMem = osTotalMem - osFreeMem;
   const loadAvg = os.loadavg();
   const uptimeSeconds = os.uptime();
+  const numCpus = os.cpus().length || 2;
+  const cpuTempInfo = getCpuTemperature(loadAvg[0], numCpus);
 
   // Моделируем телеметрию JVM Puppet Server / Master
   const now = Date.now();
@@ -287,13 +503,17 @@ app.get("/api/server-health", (_req: Request, res: Response) => {
     // Report Mean (ms) время приема отчетов
     const pointReportMean = Math.round(30 + (Math.cos(idx) * 15) + (idx % 5 === 0 ? 25 : 0));
 
+    // Температура CPU в динамике
+    const pointTemp = Number((41.0 + ((pointHeap / maxHeapMB) * 4) + (Math.sin(idx * 0.7) * 1.8)).toFixed(1));
+
     return {
       time: label,
       heapUsedMB: pointHeap,
       heapMaxMB: maxHeapMB,
       nonHeapMB: pointNonHeap,
       catalogMeanMs: pointCatalogMean,
-      reportMeanMs: Math.max(18, pointReportMean)
+      reportMeanMs: Math.max(18, pointReportMean),
+      cpuTemp: pointTemp
     };
   });
 
@@ -301,7 +521,7 @@ app.get("/api/server-health", (_req: Request, res: Response) => {
   const reportMeanMs = Math.round(35 + Math.random() * 8);
   const totalMeanMs = Math.round((catalogMeanMs * 0.15 + reportMeanMs * 0.85));
 
-  const cpuPercent = Number(Math.min(100, Math.max(0.2, (loadAvg[0] / (os.cpus().length || 2)) * 100)).toFixed(1));
+  const cpuPercent = Number(Math.min(100, Math.max(0.2, (loadAvg[0] / numCpus) * 100)).toFixed(1));
 
   res.json({
     status: "running",
@@ -312,8 +532,11 @@ app.get("/api/server-health", (_req: Request, res: Response) => {
       platform: os.platform(),
       release: os.release(),
       arch: os.arch(),
-      cpus: os.cpus().length,
-      loadAverage: loadAvg
+      cpus: numCpus,
+      loadAverage: loadAvg,
+      totalMemMB: Math.round(osTotalMem / (1024 * 1024)),
+      freeMemMB: Math.round(osFreeMem / (1024 * 1024)),
+      usedMemMB: Math.round(osUsedMem / (1024 * 1024))
     },
     jvm: {
       heapUsedMB: currentHeapMB,
@@ -329,6 +552,9 @@ app.get("/api/server-health", (_req: Request, res: Response) => {
       totalMeanMs
     },
     cpuPercent,
+    cpuTemp: cpuTempInfo.temp,
+    cpuTempStatus: cpuTempInfo.status,
+    cpuTempSource: cpuTempInfo.source,
     history: historyPoints,
     updatedAt: new Date().toLocaleTimeString()
   });
@@ -672,16 +898,6 @@ app.post("/api/groups", (req: Request, res: Response) => {
   groups.push(newGroup);
   res.status(201).json(newGroup);
 });
-
-// Вспомогательная функция для безопасного парсинга даты лога в ISO-строку
-function sanitizeLogTime(rawTime: any, fallbackIso: string): string {
-  if (!rawTime) return fallbackIso;
-  const parsed = new Date(rawTime);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString();
-  }
-  return fallbackIso;
-}
 
 // ПРИЕМ ОТЧЕТОВ ОТ PUPPET SERVER (Webhook)
 function handleReport(req: Request, res: Response) {

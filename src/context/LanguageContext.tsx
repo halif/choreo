@@ -138,6 +138,12 @@ export interface Translations {
   clearHistoryBtn: string;
   lastUpdated: string;
   pause: string;
+  cpuTemp: string;
+  cpuTempNormal: string;
+  cpuTempWarm: string;
+  cpuTempHot: string;
+  hardwareTelemetry: string;
+  thermalSensor: string;
 
   // Groups & Classes
   groupsTitle: string;
@@ -312,6 +318,12 @@ const translations: Record<Language, Translations> = {
     clearHistoryBtn: 'Clear History',
     lastUpdated: 'Updated',
     pause: 'Pause',
+    cpuTemp: 'CPU Temp',
+    cpuTempNormal: 'Optimal',
+    cpuTempWarm: 'Warm',
+    cpuTempHot: 'Critical',
+    hardwareTelemetry: 'Puppet Master Host & Hardware Telemetry',
+    thermalSensor: 'Thermal Sensor',
 
     // Groups & Classes
     groupsTitle: 'Node Groups & Classification',
@@ -484,6 +496,12 @@ const translations: Record<Language, Translations> = {
     clearHistoryBtn: 'Очистить историю',
     lastUpdated: 'Обновлено',
     pause: 'Пауза',
+    cpuTemp: 'Темп. CPU',
+    cpuTempNormal: 'В норме',
+    cpuTempWarm: 'Повышенная',
+    cpuTempHot: 'Критическая',
+    hardwareTelemetry: 'Аппаратная телеметрия хоста Puppet Master',
+    thermalSensor: 'Датчик температуры',
 
     // Groups & Classes
     groupsTitle: 'Группы узлов и классификация',
@@ -531,7 +549,18 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>('en');
+  const [language, setLanguageState] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem('choreo_lang');
+      if (saved === 'ru' || saved === 'en') {
+        return saved;
+      }
+      if (typeof navigator !== 'undefined' && navigator.language?.startsWith('ru')) {
+        return 'ru';
+      }
+    } catch {}
+    return 'en';
+  });
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
