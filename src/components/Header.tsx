@@ -1,5 +1,6 @@
 import React from 'react';
-import { Server, Play, Plus, Radio, Layers, Terminal, Sparkles } from 'lucide-react';
+import { Server, Play, Plus, Radio, Layers, Terminal, Sparkles, Globe } from 'lucide-react';
+import { useTranslation } from '../context/LanguageContext';
 
 interface HeaderProps {
   currentEnvironment: string;
@@ -10,6 +11,7 @@ interface HeaderProps {
   onOpenIntegration: () => void;
   isLiveConnected: boolean;
   puppetMasterHost?: string;
+  masterHost?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,9 +22,12 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAddNode,
   onOpenIntegration,
   isLiveConnected,
-  puppetMasterHost
+  puppetMasterHost,
+  masterHost
 }) => {
-  const masterHostDisplay = puppetMasterHost || 'kubenode1:8140';
+  const { language, setLanguage, t } = useTranslation();
+  const masterHostDisplay = masterHost ? `${masterHost}:8140` : (puppetMasterHost || 'kubenode1:8140');
+
   return (
     <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 py-3">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
@@ -38,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Choreo
                 </span>
                 <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 border border-amber-400/20 tracking-wider">
-                  v2.7.0
+                  v2.8.5
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -50,9 +55,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="flex items-center gap-1 text-[11px]">
                   <Radio className={`w-3 h-3 ${isLiveConnected ? 'text-emerald-400' : 'text-slate-500'}`} />
                   {isLiveConnected ? (
-                    <span className="text-emerald-400 font-mono">LIVE SSE</span>
+                    <span className="text-emerald-400 font-mono">{t.liveConnected}</span>
                   ) : (
-                    <span className="text-slate-500">Offline</span>
+                    <span className="text-slate-500">{t.liveOffline}</span>
                   )}
                 </span>
               </div>
@@ -62,31 +67,62 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Global Controls & Actions */}
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+
+          {/* Language Switcher (EN / RU) */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs shadow-inner gap-1">
+            <Globe className="w-3.5 h-3.5 text-amber-400 ml-1 mr-0.5 shrink-0" />
+            <button
+              type="button"
+              id="btn-lang-en"
+              onClick={() => setLanguage('en')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
+                language === 'en'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Switch to English"
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              id="btn-lang-ru"
+              onClick={() => setLanguage('ru')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
+                language === 'ru'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Переключить на русский язык"
+            >
+              RU
+            </button>
+          </div>
+
           {/* Environment Switcher */}
           <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300">
             <Layers className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-400 text-[11px] hidden sm:inline">Окружение:</span>
             <select
               value={currentEnvironment}
               onChange={(e) => onEnvironmentChange(e.target.value)}
               className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-slate-900 text-slate-200">Все окружения</option>
+              <option value="all" className="bg-slate-900 text-slate-200">{t.allEnvironments}</option>
               <option value="production" className="bg-slate-900 text-slate-200">Production</option>
               <option value="staging" className="bg-slate-900 text-slate-200">Staging</option>
               <option value="development" className="bg-slate-900 text-slate-200">Development</option>
             </select>
           </div>
 
-          {/* Integration / Simulator Button */}
+          {/* Integration / Setup Button */}
           <button
             id="btn-open-integration"
             onClick={onOpenIntegration}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700 transition cursor-pointer"
-            title="Интеграция с Puppet Master и симуляция отчетов"
+            title="Puppet Server Webhook Integration"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Webhook &amp; Симулятор</span>
+            <span className="hidden sm:inline">{t.webhookSim}</span>
             <span className="sm:hidden">Webhook</span>
           </button>
 
@@ -100,20 +136,20 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 cursor-wait'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
             }`}
-            title="Запустить puppet agent -t на всех узлах"
+            title="Trigger puppet agent -t across all nodes"
           >
             <Play className={`w-3.5 h-3.5 ${isFleetRunning ? 'animate-spin text-amber-400' : 'text-slate-300'}`} />
-            <span>{isFleetRunning ? 'Выполняется прогон...' : 'Запустить прогон флота'}</span>
+            <span>{isFleetRunning ? t.runningFleet : t.fleetRun}</span>
           </button>
 
-          {/* Add Node Button */}
+          {/* Enroll Node Button */}
           <button
             id="btn-add-node"
             onClick={onOpenAddNode}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold shadow-sm transition cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Добавить узел</span>
+            <span>{t.enrollNode}</span>
           </button>
         </div>
       </div>
